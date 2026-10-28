@@ -20,6 +20,7 @@ public:
     }
 
     [[nodiscard]] constexpr std::int64_t piasters() const noexcept { return m_piasters; }
+    [[nodiscard]] constexpr std::int64_t piastres() const noexcept { return m_piasters; }
     [[nodiscard]] constexpr std::int64_t wholeEgp() const noexcept { return m_piasters / 100; }
     [[nodiscard]] constexpr std::int64_t fractionalPiasters() const noexcept {
         const auto rem = m_piasters % 100;

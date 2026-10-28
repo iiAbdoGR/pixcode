@@ -1,7 +1,9 @@
 #include "DashboardView.h"
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QGridLayout>
+#include <QtSql/QSqlQuery>
 #include "../localization/LocalizationManager.h"
+#include "domain/value_objects/Money.h"
 
 namespace pixcode::desktop {
 
@@ -31,7 +33,7 @@ void DashboardView::setupUi() {
 
     m_roleBadge = new QLabel(this);
     m_roleBadge->setStyleSheet("background-color: #DDE4E1; color: #2E3A44; font-weight: 700; "
-                               "border-radius: 4px; padding: 4px 10px; max-width: 140px;");
+                               "border-radius: 4px; padding: 4px 10px; max-width: 180px;");
 
     cardLayout->addWidget(m_welcomeLabel);
     cardLayout->addWidget(m_roleBadge);
@@ -53,9 +55,12 @@ void DashboardView::setupUi() {
         return box;
     };
 
-    statsGrid->addWidget(makeStatBox("Total Users", m_userCountLabel), 0, 0);
-    statsGrid->addWidget(makeStatBox("SuperAdmins", m_adminCountLabel), 0, 1);
-    statsGrid->addWidget(makeStatBox("Database Status", m_dbHealthLabel), 0, 2);
+    statsGrid->addWidget(makeStatBox("الطلاب المسجلين", m_studentsCountLabel), 0, 0);
+    statsGrid->addWidget(makeStatBox("المجموعات الدراسية المفتوحة", m_groupsCountLabel), 0, 1);
+    statsGrid->addWidget(makeStatBox("المتحصلات المالية الإجمالية", m_revenueLabel), 0, 2);
+    statsGrid->addWidget(makeStatBox("مستخدمو النظام", m_userCountLabel), 1, 0);
+    statsGrid->addWidget(makeStatBox("مسؤولو النظام (Admins)", m_adminCountLabel), 1, 1);
+    statsGrid->addWidget(makeStatBox("حالة قاعدة البيانات", m_dbHealthLabel), 1, 2);
 
     mainLayout->addWidget(welcomeCard);
     mainLayout->addLayout(statsGrid);
@@ -83,6 +88,28 @@ void DashboardView::refresh() {
     m_welcomeLabel->setText(greeting);
     m_roleBadge->setText(roleStr);
 
+    // Refresh student counts
+    application::StudentFilter sFilter;
+    sFilter.status = domain::StudentStatus::Active;
+    m_studentsCountLabel->setText(QString::number(m_appContext->studentRepository()->count(sFilter)));
+
+    // Refresh groups count
+    application::GroupFilter gFilter;
+    gFilter.status = domain::GroupStatus::Open;
+    m_groupsCountLabel->setText(QString::number(m_appContext->groupRepository()->count(gFilter)));
+
+    // Refresh revenue
+    {
+        auto db = m_appContext->databaseManager()->getConnection();
+        QSqlQuery q(db);
+        q.exec("SELECT COALESCE(SUM(amount_piastres), 0) FROM payments;");
+        if (q.next()) {
+            domain::Money collected(q.value(0).toLongLong());
+            m_revenueLabel->setText(QString::fromStdString(collected.format()));
+            m_revenueLabel->setStyleSheet("font-size: 22px; font-weight: 800; color: #2E7D32;");
+        }
+    }
+
     // Refresh system counts
     const int totalUsers = m_appContext->userRepository()->countTotalUsers();
     const int superAdmins = m_appContext->userRepository()->countActiveSuperAdmins();
@@ -105,4 +132,3 @@ void DashboardView::updateTranslations() {
 }
 
 } // namespace pixcode::desktop
-

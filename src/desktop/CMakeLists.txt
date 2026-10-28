@@ -10,11 +10,21 @@ add_executable(academy_desktop
     dialogs/FirstRunWizardDialog.cpp
     dialogs/LoginDialog.cpp
     dialogs/ChangePasswordDialog.cpp
+    dialogs/StudentFormDialog.cpp
+    dialogs/StudentDetailDialog.cpp
+    dialogs/CourseFormDialog.cpp
+    dialogs/GroupFormDialog.cpp
+    dialogs/EnrollmentDialog.cpp
+    dialogs/PaymentDialog.cpp
     navigation/NavigationSidebar.cpp
     views/MainWindow.cpp
     views/DashboardView.cpp
     views/UsersView.cpp
     views/AuditView.cpp
+    views/StudentsView.cpp
+    views/CoursesView.cpp
+    views/RegistrationView.cpp
+    views/FinanceView.cpp
 )
 
 target_link_libraries(academy_desktop PRIVATE

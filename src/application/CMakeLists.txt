@@ -4,6 +4,10 @@ add_library(academy_application STATIC
     use_cases/FirstRunSetupUseCase.cpp
     use_cases/ChangePasswordUseCase.cpp
     use_cases/AuditService.cpp
+    use_cases/StudentUseCases.cpp
+    use_cases/CourseUseCases.cpp
+    use_cases/GroupUseCases.cpp
+    use_cases/EnrollmentUseCases.cpp
 )
 
 target_link_libraries(academy_application PUBLIC

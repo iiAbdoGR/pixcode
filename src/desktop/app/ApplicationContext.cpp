@@ -23,6 +23,13 @@ ApplicationContext::ApplicationContext(const QString& dbPath, QObject* parent)
     m_roleRepo = std::make_shared<infrastructure::SqliteRoleRepository>(m_dbManager);
     m_auditRepo = std::make_shared<infrastructure::SqliteAuditLogRepository>(m_dbManager);
 
+    m_studentRepo = std::make_shared<infrastructure::SqliteStudentRepository>(m_dbManager);
+    m_courseRepo = std::make_shared<infrastructure::SqliteCourseRepository>(m_dbManager);
+    m_instructorRepo = std::make_shared<infrastructure::SqliteInstructorRepository>(m_dbManager);
+    m_groupRepo = std::make_shared<infrastructure::SqliteGroupRepository>(m_dbManager);
+    m_enrollmentRepo = std::make_shared<infrastructure::SqliteEnrollmentRepository>(m_dbManager);
+    m_paymentRepo = std::make_shared<infrastructure::SqlitePaymentRepository>(m_dbManager);
+
     // 3. Application Services
     m_auditService = std::make_shared<application::AuditService>(m_auditRepo, m_clock);
     m_authContext = std::make_shared<application::AuthorizationContext>();
@@ -36,6 +43,18 @@ ApplicationContext::ApplicationContext(const QString& dbPath, QObject* parent)
 
     m_changePasswordUseCase = std::make_shared<application::ChangePasswordUseCase>(
         m_userRepo, m_passwordHasher, m_clock, m_auditService);
+
+    m_studentUseCases = std::make_shared<application::StudentUseCases>(
+        m_studentRepo, m_authContext);
+
+    m_courseUseCases = std::make_shared<application::CourseUseCases>(
+        m_courseRepo);
+
+    m_groupUseCases = std::make_shared<application::GroupUseCases>(
+        m_groupRepo, m_courseRepo, m_instructorRepo);
+
+    m_enrollmentUseCases = std::make_shared<application::EnrollmentUseCases>(
+        m_enrollmentRepo, m_groupRepo, m_studentRepo, m_paymentRepo, m_courseRepo);
 
     // 5. Shared-PC Idle auto-lock countdown timer
     connect(m_idleTimer, &QTimer::timeout, this, [this]() {
@@ -61,70 +80,63 @@ ApplicationContext::~ApplicationContext() {
 }
 
 bool ApplicationContext::initialize(QString& outError) {
-    // 1. Run migrations
     if (!m_migrationRunner->runMigrations(outError)) {
         return false;
     }
-
-    // 2. Check DB integrity
-    QString integrityMsg;
-    if (!m_dbManager->checkIntegrity(integrityMsg)) {
-        outError = "Database integrity check failed: " + integrityMsg;
-        return false;
-    }
-
     return true;
-}
-
-bool ApplicationContext::eventFilter(QObject* watched, QEvent* event) {
-    if (event->type() == QEvent::KeyPress ||
-        event->type() == QEvent::MouseButtonPress ||
-        event->type() == QEvent::MouseMove) {
-        notifyUserActivity();
-    }
-    return QObject::eventFilter(watched, event);
-}
-
-void ApplicationContext::notifyUserActivity() {
-    if (!m_isLocked) {
-        m_secondsRemaining = DefaultIdleTimeoutSeconds;
-    }
 }
 
 void ApplicationContext::login(const application::LoginResultDto& resultDto) {
     auto userOpt = m_userRepo->findById(resultDto.userId);
-    if (userOpt.has_value()) {
-        m_authContext->setCurrentUser(*userOpt);
-    }
+    if (!userOpt.has_value()) return;
 
-    LocalizationManager::instance().setLanguage(QString::fromStdString(resultDto.preferredLanguage));
-
+    m_authContext->setCurrentUser(std::move(*userOpt));
     m_isLocked = false;
     m_secondsRemaining = DefaultIdleTimeoutSeconds;
-    m_idleTimer->start(1000); // 1-second interval
+    m_idleTimer->start(1000);
 
-    QStringList roleList;
+    QStringList roleCodes;
     for (const auto& r : resultDto.roles) {
-        roleList.append(QString::fromStdString(r));
+        roleCodes.append(QString::fromStdString(r));
     }
-
-    emit userLoggedIn(QString::fromStdString(resultDto.username), roleList);
+    emit userLoggedIn(QString::fromStdString(resultDto.username), roleCodes);
 }
 
 void ApplicationContext::logout() {
     m_idleTimer->stop();
     m_authContext->setCurrentUser(std::nullopt);
     m_isLocked = false;
-    m_secondsRemaining = DefaultIdleTimeoutSeconds;
-
     emit userLoggedOut();
 }
 
 void ApplicationContext::lockSession() {
-    if (!m_authContext->isAuthenticated()) return;
+    if (m_isLocked) return;
     m_isLocked = true;
+    m_idleTimer->stop();
     emit sessionLocked();
 }
 
-} // namespace pixcode::desktop
+void ApplicationContext::notifyUserActivity() {
+    if (!m_isLocked && m_authContext->isAuthenticated()) {
+        m_secondsRemaining = DefaultIdleTimeoutSeconds;
+    }
+}
 
+bool ApplicationContext::eventFilter(QObject* watched, QEvent* event) {
+    switch (event->type()) {
+        case QEvent::MouseMove:
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseButtonRelease:
+        case QEvent::KeyPress:
+        case QEvent::KeyRelease:
+        case QEvent::Wheel:
+        case QEvent::TouchBegin:
+            notifyUserActivity();
+            break;
+        default:
+            break;
+    }
+    return QObject::eventFilter(watched, event);
+}
+
+} // namespace pixcode::desktop

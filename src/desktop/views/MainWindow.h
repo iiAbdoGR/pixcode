@@ -10,6 +10,10 @@
 #include "DashboardView.h"
 #include "UsersView.h"
 #include "AuditView.h"
+#include "StudentsView.h"
+#include "CoursesView.h"
+#include "RegistrationView.h"
+#include "FinanceView.h"
 
 namespace pixcode::desktop {
 
@@ -46,10 +50,13 @@ private:
     QStackedWidget* m_stackedWidget;
 
     DashboardView* m_dashboardView;
+    RegistrationView* m_registrationView;
+    StudentsView* m_studentsView;
+    CoursesView* m_coursesView;
+    FinanceView* m_financeView;
     UsersView* m_usersView;
     AuditView* m_auditView;
     QWidget* m_placeholderView;
 };
 
 } // namespace pixcode::desktop
-

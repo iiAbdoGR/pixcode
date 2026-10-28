@@ -5,6 +5,7 @@ add_executable(academy_tests
     domain/PasswordHasherTests.cpp
     domain/UserEntityTests.cpp
     domain/MoneyTests.cpp
+    domain/AcademicDomainTests.cpp
     application/AuthorizationTests.cpp
     infrastructure/DatabaseMigrationTests.cpp
     infrastructure/AuditLogTests.cpp

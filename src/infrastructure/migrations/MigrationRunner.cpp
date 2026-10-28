@@ -37,6 +37,12 @@ std::vector<MigrationDefinition> MigrationRunner::getBuiltinMigrations() {
         .sql = std::string(V001_InitialSchemaSql)
     });
 
+    migrations.push_back(MigrationDefinition{
+        .version = 2,
+        .name = "V002__academic_schema",
+        .sql = std::string(V002_AcademicSchemaSql)
+    });
+
     return migrations;
 }
 

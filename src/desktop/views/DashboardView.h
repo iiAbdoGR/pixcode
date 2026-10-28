@@ -29,7 +29,9 @@ private:
     QLabel* m_dbHealthLabel;
     QLabel* m_userCountLabel;
     QLabel* m_adminCountLabel;
+    QLabel* m_studentsCountLabel;
+    QLabel* m_groupsCountLabel;
+    QLabel* m_revenueLabel;
 };
 
 } // namespace pixcode::desktop
-

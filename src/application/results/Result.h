@@ -2,6 +2,7 @@
 
 #include <variant>
 #include <string>
+#include <optional>
 #include <stdexcept>
 #include "domain/errors/DomainError.h"
 
@@ -87,4 +88,3 @@ private:
 };
 
 } // namespace pixcode::application
-

@@ -1,9 +1,9 @@
 #include "MainWindow.h"
 #include <QtWidgets/QWidget>
-#include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QFrame>
+#include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QMessageBox>
+#include <QtWidgets/QFrame>
 #include "../localization/LocalizationManager.h"
 #include "../dialogs/LoginDialog.h"
 #include "../dialogs/ChangePasswordDialog.h"
@@ -12,6 +12,7 @@ namespace pixcode::desktop {
 
 MainWindow::MainWindow(std::shared_ptr<ApplicationContext> appContext, QWidget* parent)
     : QMainWindow(parent), m_appContext(std::move(appContext)) {
+
     setupUi();
     updateTranslations();
 
@@ -25,58 +26,54 @@ MainWindow::MainWindow(std::shared_ptr<ApplicationContext> appContext, QWidget* 
 }
 
 void MainWindow::setupUi() {
-    setWindowTitle("Pix Code Academy Management System");
-    resize(1200, 760);
-    setMinimumSize(960, 640);
+    resize(1280, 800);
+    setMinimumSize(1024, 680);
 
     auto* centralWidget = new QWidget(this);
     auto* rootLayout = new QVBoxLayout(centralWidget);
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
 
-    // Top Header Bar
+    // 1. Top Header
     auto* headerFrame = new QFrame(this);
-    headerFrame->setStyleSheet("background-color: #FFFFFF; border-bottom: 1px solid #CBD2D9;");
     headerFrame->setFixedHeight(64);
+    headerFrame->setStyleSheet("background-color: #2E3A44; border-bottom: 2px solid #CBD2D9;");
+
     auto* headerLayout = new QHBoxLayout(headerFrame);
     headerLayout->setContentsMargins(24, 0, 24, 0);
     headerLayout->setSpacing(16);
 
     m_brandLabel = new QLabel("PIX CODE ACADEMY", headerFrame);
-    m_brandLabel->setStyleSheet("font-size: 15px; font-weight: 800; color: #2E3A44; letter-spacing: 1px;");
-
-    m_autoLockLabel = new QLabel(headerFrame);
-    m_autoLockLabel->setStyleSheet("color: #7E939C; font-size: 12px; font-weight: 600;");
+    m_brandLabel->setStyleSheet("color: #FFFFFF; font-size: 18px; font-weight: 800; letter-spacing: 1px;");
 
     m_userBadge = new QLabel(headerFrame);
-    m_userBadge->setStyleSheet("background-color: #DDE4E1; color: #2E3A44; font-weight: 700; "
-                               "border-radius: 4px; padding: 4px 12px; font-size: 12px;");
+    m_userBadge->setStyleSheet("color: #DDE4E1; font-weight: 600; font-size: 13px;");
+
+    m_autoLockLabel = new QLabel(headerFrame);
+    m_autoLockLabel->setStyleSheet("color: #B0C2C6; font-size: 12px;");
 
     m_changePasswordBtn = new QPushButton(headerFrame);
     m_changePasswordBtn->setObjectName("secondaryButton");
-    m_changePasswordBtn->setFixedHeight(32);
     connect(m_changePasswordBtn, &QPushButton::clicked, this, &MainWindow::onChangePasswordClicked);
 
     m_langToggleBtn = new QPushButton(headerFrame);
     m_langToggleBtn->setObjectName("secondaryButton");
-    m_langToggleBtn->setFixedHeight(32);
     connect(m_langToggleBtn, &QPushButton::clicked, this, &MainWindow::onLanguageToggleClicked);
 
     m_logoutBtn = new QPushButton(headerFrame);
-    m_logoutBtn->setObjectName("secondaryButton");
-    m_logoutBtn->setFixedHeight(32);
+    m_logoutBtn->setObjectName("dangerButton");
     connect(m_logoutBtn, &QPushButton::clicked, this, &MainWindow::onLogoutClicked);
 
     headerLayout->addWidget(m_brandLabel);
     headerLayout->addStretch();
-    headerLayout->addWidget(m_autoLockLabel);
     headerLayout->addWidget(m_userBadge);
+    headerLayout->addWidget(m_autoLockLabel);
     headerLayout->addWidget(m_changePasswordBtn);
     headerLayout->addWidget(m_langToggleBtn);
     headerLayout->addWidget(m_logoutBtn);
 
-    // Main Body (Sidebar + Stacked Views)
-    auto* bodyWidget = new QWidget(this);
+    // 2. Central Layout: Sidebar + Stacked Widget
+    auto* bodyWidget = new QWidget(centralWidget);
     auto* bodyLayout = new QHBoxLayout(bodyWidget);
     bodyLayout->setContentsMargins(0, 0, 0, 0);
     bodyLayout->setSpacing(0);
@@ -87,6 +84,10 @@ void MainWindow::setupUi() {
     m_stackedWidget = new QStackedWidget(bodyWidget);
 
     m_dashboardView = new DashboardView(m_appContext, this);
+    m_registrationView = new RegistrationView(m_appContext, this);
+    m_studentsView = new StudentsView(m_appContext, this);
+    m_coursesView = new CoursesView(m_appContext, this);
+    m_financeView = new FinanceView(m_appContext, this);
     m_usersView = new UsersView(m_appContext, this);
     m_auditView = new AuditView(m_appContext, this);
 
@@ -98,10 +99,14 @@ void MainWindow::setupUi() {
     plLayout->addWidget(plLabel);
 
     // Map destinations to stacked widget
-    m_stackedWidget->addWidget(m_dashboardView);   // 0: Dashboard
-    m_stackedWidget->addWidget(m_placeholderView); // 1: Placeholder for Phase 2-6
-    m_stackedWidget->addWidget(m_usersView);       // 2: Users
-    m_stackedWidget->addWidget(m_auditView);       // 3: Audit
+    m_stackedWidget->addWidget(m_dashboardView);    // 0: Dashboard
+    m_stackedWidget->addWidget(m_registrationView); // 1: Registration / Enrollments
+    m_stackedWidget->addWidget(m_studentsView);     // 2: Students
+    m_stackedWidget->addWidget(m_coursesView);      // 3: Courses & Groups
+    m_stackedWidget->addWidget(m_financeView);      // 4: Finance & Receipts
+    m_stackedWidget->addWidget(m_usersView);        // 5: Users
+    m_stackedWidget->addWidget(m_auditView);        // 6: Audit
+    m_stackedWidget->addWidget(m_placeholderView);  // 7: Placeholder
 
     bodyLayout->addWidget(m_sidebar);
     bodyLayout->addWidget(m_stackedWidget);
@@ -131,6 +136,22 @@ void MainWindow::onDestinationChanged(NavDestination dest) {
         case NavDestination::Dashboard:
             m_dashboardView->refresh();
             m_stackedWidget->setCurrentWidget(m_dashboardView);
+            break;
+        case NavDestination::Registration:
+            m_registrationView->refresh();
+            m_stackedWidget->setCurrentWidget(m_registrationView);
+            break;
+        case NavDestination::Students:
+            m_studentsView->refresh();
+            m_stackedWidget->setCurrentWidget(m_studentsView);
+            break;
+        case NavDestination::Courses:
+            m_coursesView->refresh();
+            m_stackedWidget->setCurrentWidget(m_coursesView);
+            break;
+        case NavDestination::Finance:
+            m_financeView->refresh();
+            m_stackedWidget->setCurrentWidget(m_financeView);
             break;
         case NavDestination::Users:
             m_usersView->refresh();
@@ -166,26 +187,27 @@ void MainWindow::onUserLoggedOut() {
 }
 
 void MainWindow::onSessionLocked() {
-    hide();
+    m_autoLockLabel->setText("LOCKED");
     LoginDialog login(m_appContext, this);
+    login.setWindowTitle(LocalizationManager::instance().isRtl() ? "الجلسة مقفلة" : "Session Locked");
     if (login.exec() == QDialog::Accepted) {
-        show();
+        m_autoLockLabel->setText("");
     } else {
         close();
     }
 }
 
 void MainWindow::onAutoLockTick(int secondsRemaining) {
-    m_autoLockLabel->setText(QString(trText("header.autolock")).arg(secondsRemaining));
+    if (secondsRemaining <= 60) {
+        m_autoLockLabel->setText(QString("Lock in %1s").arg(secondsRemaining));
+        m_autoLockLabel->setStyleSheet("color: #ED6C02; font-weight: bold; font-size: 12px;");
+    } else {
+        m_autoLockLabel->setText("");
+    }
 }
 
 void MainWindow::onLanguageToggleClicked() {
-    auto& loc = LocalizationManager::instance();
-    if (loc.currentLanguage() == "ar") {
-        loc.setLanguage("en");
-    } else {
-        loc.setLanguage("ar");
-    }
+    auto& loc = LocalizationManager::instance(); loc.setLanguage(loc.currentLanguage() == "ar" ? "en" : "ar");
 }
 
 void MainWindow::onChangePasswordClicked() {
@@ -194,17 +216,7 @@ void MainWindow::onChangePasswordClicked() {
 }
 
 void MainWindow::onLogoutClicked() {
-    auto reply = QMessageBox::question(
-        this,
-        LocalizationManager::instance().isRtl() ? "تسجيل الخروج" : "Sign Out",
-        LocalizationManager::instance().isRtl() ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to sign out?",
-        QMessageBox::Yes | QMessageBox::No
-    );
-
-    if (reply == QMessageBox::Yes) {
-        m_appContext->logout();
-    }
+    m_appContext->logout();
 }
 
 } // namespace pixcode::desktop
-

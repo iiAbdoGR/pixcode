@@ -3,6 +3,7 @@
 #include "domain/PasswordHasherTests.h"
 #include "domain/UserEntityTests.h"
 #include "domain/MoneyTests.h"
+#include "domain/AcademicDomainTests.h"
 #include "application/AuthorizationTests.h"
 #include "infrastructure/DatabaseMigrationTests.h"
 #include "infrastructure/AuditLogTests.h"
@@ -12,7 +13,7 @@ int main(int argc, char* argv[]) {
     int status = 0;
 
     std::cout << "\n============================================\n";
-    std::cout << "      Pix Code Academy Test Suite (Phase 1) \n";
+    std::cout << "      Pix Code Academy Test Suite           \n";
     std::cout << "============================================\n\n";
 
     {
@@ -34,6 +35,12 @@ int main(int argc, char* argv[]) {
         status |= s;
     }
     {
+        AcademicDomainTests t;
+        int s = QTest::qExec(&t, argc, argv);
+        std::cout << "[Test] AcademicDomainTests exit: " << s << std::endl;
+        status |= s;
+    }
+    {
         AuthorizationTests t;
         int s = QTest::qExec(&t, argc, argv);
         std::cout << "[Test] AuthorizationTests exit: " << s << std::endl;
@@ -52,6 +59,6 @@ int main(int argc, char* argv[]) {
         status |= s;
     }
 
-    std::cout << "\nAll Phase 1 Tests Completed. Final Status: " << status << "\n";
+    std::cout << "\nAll Tests Completed. Final Status: " << status << "\n";
     return status;
 }
