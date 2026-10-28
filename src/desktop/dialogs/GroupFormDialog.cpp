@@ -224,3 +224,4 @@ void GroupFormDialog::onSaveClicked() {
 }
 
 } // namespace pixcode::desktop
+

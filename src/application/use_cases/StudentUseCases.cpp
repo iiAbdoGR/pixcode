@@ -118,3 +118,4 @@ StudentSummaryDto StudentUseCases::toSummaryDto(const domain::Student& s) {
 }
 
 } // namespace pixcode::application
+

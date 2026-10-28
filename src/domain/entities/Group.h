@@ -41,3 +41,4 @@ struct Group {
 };
 
 } // namespace pixcode::domain
+

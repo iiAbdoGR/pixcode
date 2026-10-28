@@ -165,3 +165,4 @@ void PaymentDialog::onRecordClicked() {
 }
 
 } // namespace pixcode::desktop
+

@@ -213,3 +213,4 @@ void RegistrationView::onCancelEnrollmentClicked() {
 }
 
 } // namespace pixcode::desktop
+

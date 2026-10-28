@@ -222,3 +222,4 @@ void EnrollmentDialog::onEnrollClicked() {
 }
 
 } // namespace pixcode::desktop
+

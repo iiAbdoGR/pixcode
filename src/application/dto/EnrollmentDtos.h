@@ -66,3 +66,4 @@ struct CreateInstructorCommand {
 };
 
 } // namespace pixcode::application
+

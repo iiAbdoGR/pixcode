@@ -242,3 +242,4 @@ void AcademicDomainTests::testPaymentAndReceiptWorkflow() {
     QCOMPARE(eAfterP2.paidPiastres, 300000);
     QCOMPARE(eAfterP2.balancePiastres, 0); // Fully settled!
 }
+

@@ -129,3 +129,4 @@ std::int64_t SqlitePaymentRepository::totalPaid(std::int64_t enrollmentId) {
 }
 
 } // namespace pixcode::infrastructure
+

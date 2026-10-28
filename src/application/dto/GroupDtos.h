@@ -47,3 +47,4 @@ struct GroupDto {
 };
 
 } // namespace pixcode::application
+

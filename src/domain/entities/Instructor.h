@@ -31,3 +31,4 @@ struct Instructor {
 };
 
 } // namespace pixcode::domain
+

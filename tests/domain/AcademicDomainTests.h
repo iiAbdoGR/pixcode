@@ -11,3 +11,4 @@ private slots:
     void testEnrollmentAndCapacityEnforcement();
     void testPaymentAndReceiptWorkflow();
 };
+

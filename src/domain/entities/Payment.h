@@ -37,3 +37,4 @@ struct Payment {
 };
 
 } // namespace pixcode::domain
+

@@ -32,3 +32,4 @@ struct CourseDto {
 };
 
 } // namespace pixcode::application
+

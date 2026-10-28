@@ -47,3 +47,4 @@ struct Enrollment {
 };
 
 } // namespace pixcode::domain
+

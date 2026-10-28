@@ -35,3 +35,4 @@ struct Course {
 };
 
 } // namespace pixcode::domain
+

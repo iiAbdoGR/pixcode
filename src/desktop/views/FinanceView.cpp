@@ -261,3 +261,4 @@ void FinanceView::onViewReceiptClicked() {
 }
 
 } // namespace pixcode::desktop
+

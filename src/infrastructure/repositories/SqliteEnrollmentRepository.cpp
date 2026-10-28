@@ -149,3 +149,4 @@ domain::Enrollment SqliteEnrollmentRepository::save(const domain::Enrollment& en
 }
 
 } // namespace pixcode::infrastructure
+

@@ -26,3 +26,4 @@ public:
 };
 
 } // namespace pixcode::application
+

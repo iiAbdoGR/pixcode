@@ -22,3 +22,4 @@ private:
 };
 
 } // namespace pixcode::infrastructure
+

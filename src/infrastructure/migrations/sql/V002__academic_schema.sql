@@ -101,3 +101,4 @@ CREATE TABLE IF NOT EXISTS payments (
 
 CREATE INDEX IF NOT EXISTS idx_payments_enrollment ON payments(enrollment_id);
 CREATE INDEX IF NOT EXISTS idx_payments_receipt    ON payments(receipt_number);
+

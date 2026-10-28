@@ -247,3 +247,4 @@ void StudentsView::onArchiveStudentClicked() {
 }
 
 } // namespace pixcode::desktop
+

@@ -123,3 +123,4 @@ GroupDto GroupUseCases::buildDto(const domain::Group& g) {
 }
 
 } // namespace pixcode::application
+

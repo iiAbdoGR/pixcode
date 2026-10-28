@@ -54,3 +54,4 @@ private:
 };
 
 } // namespace pixcode::desktop
+

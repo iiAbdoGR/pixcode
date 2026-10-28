@@ -287,3 +287,4 @@ void CoursesView::onEnrollInGroupClicked() {
 }
 
 } // namespace pixcode::desktop
+

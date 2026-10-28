@@ -78,3 +78,4 @@ CourseDto CourseUseCases::toDto(const domain::Course& c) {
 }
 
 } // namespace pixcode::application
+

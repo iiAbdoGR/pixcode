@@ -135,3 +135,4 @@ void CourseFormDialog::onSaveClicked() {
 }
 
 } // namespace pixcode::desktop
+

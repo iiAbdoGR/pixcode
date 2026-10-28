@@ -212,3 +212,4 @@ PaymentDto EnrollmentUseCases::toPaymentDto(const domain::Payment& p) {
 }
 
 } // namespace pixcode::application
+
