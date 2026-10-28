@@ -101,6 +101,35 @@ void StudentDetailDialog::setupUi() {
 
     mainLayout->addWidget(m_enrollmentsTable);
 
+    // Attendance History Header & Table
+    auto* attHeaderLayout = new QHBoxLayout();
+    auto* attTitle = new QLabel(isRtl ? "سجل حضور وغياب الطالب:" : "Attendance History:", this);
+    attTitle->setStyleSheet("font-weight: bold; font-size: 14px;");
+    m_attendanceRateLabel = new QLabel(this);
+    m_attendanceRateLabel->setStyleSheet("font-weight: bold; color: #1976D2; font-size: 13px;");
+
+    attHeaderLayout->addWidget(attTitle);
+    attHeaderLayout->addStretch();
+    attHeaderLayout->addWidget(m_attendanceRateLabel);
+    mainLayout->addLayout(attHeaderLayout);
+
+    m_attendanceTable = new QTableWidget(this);
+    m_attendanceTable->setColumnCount(5);
+    m_attendanceTable->setHorizontalHeaderLabels({
+        isRtl ? "تاريخ الحصة" : "Session Date",
+        isRtl ? "المجموعة" : "Group",
+        isRtl ? "الحالة" : "Status",
+        isRtl ? "وقت الحضور" : "Arrival Time",
+        isRtl ? "ملاحظات" : "Notes"
+    });
+    m_attendanceTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_attendanceTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_attendanceTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_attendanceTable->horizontalHeader()->setStretchLastSection(true);
+    m_attendanceTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    m_attendanceTable->setMaximumHeight(160);
+    mainLayout->addWidget(m_attendanceTable);
+
     // Actions layout
     auto* bottomLayout = new QHBoxLayout();
     m_editBtn = new QPushButton(isRtl ? "تعديل بيانات الطالب" : "Edit Student Info", this);
@@ -193,6 +222,43 @@ void StudentDetailDialog::loadData() {
             m_enrollmentsTable->setItem(i, 6, itemBalance);
             m_enrollmentsTable->setItem(i, 7, itemStatus);
         }
+    }
+
+    // Load attendance history
+    auto attRes = m_appContext->attendanceUseCases()->getStudentAttendanceHistory(m_studentId);
+    if (attRes.isOk()) {
+        const auto& attList = attRes.value();
+        m_attendanceTable->setRowCount(static_cast<int>(attList.size()));
+
+        int presentCount = 0;
+        int totalValid = 0;
+
+        for (int i = 0; i < static_cast<int>(attList.size()); ++i) {
+            const auto& a = attList[i];
+            m_attendanceTable->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(a.sessionDate)));
+            m_attendanceTable->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(a.groupName)));
+
+            QString stText = QString::fromStdString(a.status);
+            if (a.status == "present") { stText = isRtl ? "حاضر" : "Present"; presentCount++; totalValid++; }
+            else if (a.status == "late") { stText = isRtl ? "متأخر" : "Late"; presentCount++; totalValid++; }
+            else if (a.status == "excused") { stText = isRtl ? "معذور" : "Excused"; presentCount++; totalValid++; }
+            else if (a.status == "absent") { stText = isRtl ? "غائب" : "Absent"; totalValid++; }
+
+            auto* stItem = new QTableWidgetItem(stText);
+            if (a.status == "present") stItem->setForeground(QBrush(QColor("#2E7D32")));
+            else if (a.status == "absent") stItem->setForeground(QBrush(QColor("#D32F2F")));
+            else if (a.status == "late") stItem->setForeground(QBrush(QColor("#ED6C02")));
+
+            m_attendanceTable->setItem(i, 2, stItem);
+            m_attendanceTable->setItem(i, 3, new QTableWidgetItem(QString::fromStdString(a.arrivalTime.empty() ? "-" : a.arrivalTime)));
+            m_attendanceTable->setItem(i, 4, new QTableWidgetItem(QString::fromStdString(a.notes)));
+        }
+
+        double rate = totalValid > 0 ? (static_cast<double>(presentCount) / totalValid) * 100.0 : 100.0;
+        m_attendanceRateLabel->setText(QString(isRtl ? "نسبة الحضور: %1% (حضر %2 من %3)" : "Attendance Rate: %1% (%2 of %3)")
+            .arg(QString::number(rate, 'f', 1))
+            .arg(presentCount)
+            .arg(totalValid));
     }
 }
 

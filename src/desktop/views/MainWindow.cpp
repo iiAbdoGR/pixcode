@@ -87,7 +87,9 @@ void MainWindow::setupUi() {
     m_registrationView = new RegistrationView(m_appContext, this);
     m_studentsView = new StudentsView(m_appContext, this);
     m_coursesView = new CoursesView(m_appContext, this);
+    m_attendanceView = new AttendanceView(m_appContext, this);
     m_financeView = new FinanceView(m_appContext, this);
+    m_payrollView = new PayrollView(m_appContext, this);
     m_usersView = new UsersView(m_appContext, this);
     m_auditView = new AuditView(m_appContext, this);
 
@@ -103,10 +105,12 @@ void MainWindow::setupUi() {
     m_stackedWidget->addWidget(m_registrationView); // 1: Registration / Enrollments
     m_stackedWidget->addWidget(m_studentsView);     // 2: Students
     m_stackedWidget->addWidget(m_coursesView);      // 3: Courses & Groups
-    m_stackedWidget->addWidget(m_financeView);      // 4: Finance & Receipts
-    m_stackedWidget->addWidget(m_usersView);        // 5: Users
-    m_stackedWidget->addWidget(m_auditView);        // 6: Audit
-    m_stackedWidget->addWidget(m_placeholderView);  // 7: Placeholder
+    m_stackedWidget->addWidget(m_attendanceView);   // 4: Attendance
+    m_stackedWidget->addWidget(m_financeView);      // 5: Finance & Receipts
+    m_stackedWidget->addWidget(m_payrollView);      // 6: Payroll
+    m_stackedWidget->addWidget(m_usersView);        // 7: Users
+    m_stackedWidget->addWidget(m_auditView);        // 8: Audit
+    m_stackedWidget->addWidget(m_placeholderView);  // 9: Placeholder
 
     bodyLayout->addWidget(m_sidebar);
     bodyLayout->addWidget(m_stackedWidget);
@@ -149,9 +153,17 @@ void MainWindow::onDestinationChanged(NavDestination dest) {
             m_coursesView->refresh();
             m_stackedWidget->setCurrentWidget(m_coursesView);
             break;
+        case NavDestination::Attendance:
+            m_attendanceView->refresh();
+            m_stackedWidget->setCurrentWidget(m_attendanceView);
+            break;
         case NavDestination::Finance:
             m_financeView->refresh();
             m_stackedWidget->setCurrentWidget(m_financeView);
+            break;
+        case NavDestination::Payroll:
+            m_payrollView->refresh();
+            m_stackedWidget->setCurrentWidget(m_payrollView);
             break;
         case NavDestination::Users:
             m_usersView->refresh();

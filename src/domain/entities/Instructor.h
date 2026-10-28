@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 #include <optional>
+#include "../value_objects/Money.h"
 #include "../errors/DomainError.h"
 
 namespace pixcode::domain {
@@ -17,6 +18,8 @@ struct Instructor {
     std::optional<std::string> userId;  // user ID UUID if linked to a system user
     std::string fullName;
     std::string phone;
+    std::string specialization;
+    Money hourlyRate{0};
     std::string notes;
     InstructorStatus status{InstructorStatus::Active};
     std::string createdAtUtc;
@@ -31,4 +34,3 @@ struct Instructor {
 };
 
 } // namespace pixcode::domain
-

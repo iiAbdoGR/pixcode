@@ -14,6 +14,8 @@
 #include "CoursesView.h"
 #include "RegistrationView.h"
 #include "FinanceView.h"
+#include "AttendanceView.h"
+#include "PayrollView.h"
 
 namespace pixcode::desktop {
 
@@ -53,7 +55,9 @@ private:
     RegistrationView* m_registrationView;
     StudentsView* m_studentsView;
     CoursesView* m_coursesView;
+    AttendanceView* m_attendanceView;
     FinanceView* m_financeView;
+    PayrollView* m_payrollView;
     UsersView* m_usersView;
     AuditView* m_auditView;
     QWidget* m_placeholderView;

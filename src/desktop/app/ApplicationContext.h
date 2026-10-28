@@ -17,6 +17,9 @@
 #include "infrastructure/repositories/SqliteGroupRepository.h"
 #include "infrastructure/repositories/SqliteEnrollmentRepository.h"
 #include "infrastructure/repositories/SqlitePaymentRepository.h"
+#include "infrastructure/repositories/SqliteSessionRepository.h"
+#include "infrastructure/repositories/SqliteAttendanceRepository.h"
+#include "infrastructure/repositories/SqliteInstructorPayoutRepository.h"
 
 #include "application/authorization/AuthorizationContext.h"
 #include "application/use_cases/AuthenticateUserUseCase.h"
@@ -27,6 +30,9 @@
 #include "application/use_cases/CourseUseCases.h"
 #include "application/use_cases/GroupUseCases.h"
 #include "application/use_cases/EnrollmentUseCases.h"
+#include "application/use_cases/StaffManagementUseCases.h"
+#include "application/use_cases/AttendanceUseCases.h"
+#include "application/use_cases/InstructorPayrollUseCases.h"
 
 namespace pixcode::desktop {
 
@@ -52,6 +58,9 @@ public:
     [[nodiscard]] std::shared_ptr<application::IGroupRepository> groupRepository() const noexcept { return m_groupRepo; }
     [[nodiscard]] std::shared_ptr<application::IEnrollmentRepository> enrollmentRepository() const noexcept { return m_enrollmentRepo; }
     [[nodiscard]] std::shared_ptr<application::IPaymentRepository> paymentRepository() const noexcept { return m_paymentRepo; }
+    [[nodiscard]] std::shared_ptr<application::ISessionRepository> sessionRepository() const noexcept { return m_sessionRepo; }
+    [[nodiscard]] std::shared_ptr<application::IAttendanceRepository> attendanceRepository() const noexcept { return m_attendanceRepo; }
+    [[nodiscard]] std::shared_ptr<application::IInstructorPayoutRepository> payoutRepository() const noexcept { return m_payoutRepo; }
 
     // Use cases
     [[nodiscard]] std::shared_ptr<application::AuthenticateUserUseCase> authenticateUseCase() const noexcept { return m_authUseCase; }
@@ -63,6 +72,9 @@ public:
     [[nodiscard]] std::shared_ptr<application::CourseUseCases> courseUseCases() const noexcept { return m_courseUseCases; }
     [[nodiscard]] std::shared_ptr<application::GroupUseCases> groupUseCases() const noexcept { return m_groupUseCases; }
     [[nodiscard]] std::shared_ptr<application::EnrollmentUseCases> enrollmentUseCases() const noexcept { return m_enrollmentUseCases; }
+    [[nodiscard]] std::shared_ptr<application::StaffManagementUseCases> staffUseCases() const noexcept { return m_staffUseCases; }
+    [[nodiscard]] std::shared_ptr<application::AttendanceUseCases> attendanceUseCases() const noexcept { return m_attendanceUseCases; }
+    [[nodiscard]] std::shared_ptr<application::InstructorPayrollUseCases> payrollUseCases() const noexcept { return m_payrollUseCases; }
 
     // Session Management
     void login(const application::LoginResultDto& resultDto);
@@ -99,6 +111,9 @@ private:
     std::shared_ptr<infrastructure::SqliteGroupRepository> m_groupRepo;
     std::shared_ptr<infrastructure::SqliteEnrollmentRepository> m_enrollmentRepo;
     std::shared_ptr<infrastructure::SqlitePaymentRepository> m_paymentRepo;
+    std::shared_ptr<infrastructure::SqliteSessionRepository> m_sessionRepo;
+    std::shared_ptr<infrastructure::SqliteAttendanceRepository> m_attendanceRepo;
+    std::shared_ptr<infrastructure::SqliteInstructorPayoutRepository> m_payoutRepo;
 
     std::shared_ptr<application::AuditService> m_auditService;
     std::shared_ptr<application::AuthorizationContext> m_authContext;
@@ -111,6 +126,9 @@ private:
     std::shared_ptr<application::CourseUseCases> m_courseUseCases;
     std::shared_ptr<application::GroupUseCases> m_groupUseCases;
     std::shared_ptr<application::EnrollmentUseCases> m_enrollmentUseCases;
+    std::shared_ptr<application::StaffManagementUseCases> m_staffUseCases;
+    std::shared_ptr<application::AttendanceUseCases> m_attendanceUseCases;
+    std::shared_ptr<application::InstructorPayrollUseCases> m_payrollUseCases;
 
     QTimer* m_idleTimer;
     int m_secondsRemaining;

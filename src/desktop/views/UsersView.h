@@ -19,6 +19,9 @@ public:
 
 private slots:
     void onRefreshClicked();
+    void onAddStaffClicked();
+    void onEditStaffClicked();
+    void onResetPasswordClicked();
     void onUnlockSelectedUser();
     void onToggleUserActive();
 
@@ -30,10 +33,12 @@ private:
 
     QLabel* m_titleLabel;
     QTableWidget* m_table;
-    QPushButton* m_refreshButton;
+    QPushButton* m_addStaffBtn;
+    QPushButton* m_editStaffBtn;
+    QPushButton* m_resetPassBtn;
     QPushButton* m_unlockButton;
     QPushButton* m_toggleActiveButton;
+    QPushButton* m_refreshButton;
 };
 
 } // namespace pixcode::desktop
-

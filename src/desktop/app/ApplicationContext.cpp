@@ -30,6 +30,10 @@ ApplicationContext::ApplicationContext(const QString& dbPath, QObject* parent)
     m_enrollmentRepo = std::make_shared<infrastructure::SqliteEnrollmentRepository>(m_dbManager);
     m_paymentRepo = std::make_shared<infrastructure::SqlitePaymentRepository>(m_dbManager);
 
+    m_sessionRepo = std::make_shared<infrastructure::SqliteSessionRepository>(m_dbManager);
+    m_attendanceRepo = std::make_shared<infrastructure::SqliteAttendanceRepository>(m_dbManager);
+    m_payoutRepo = std::make_shared<infrastructure::SqliteInstructorPayoutRepository>(m_dbManager);
+
     // 3. Application Services
     m_auditService = std::make_shared<application::AuditService>(m_auditRepo, m_clock);
     m_authContext = std::make_shared<application::AuthorizationContext>();
@@ -55,6 +59,15 @@ ApplicationContext::ApplicationContext(const QString& dbPath, QObject* parent)
 
     m_enrollmentUseCases = std::make_shared<application::EnrollmentUseCases>(
         m_enrollmentRepo, m_groupRepo, m_studentRepo, m_paymentRepo, m_courseRepo);
+
+    m_staffUseCases = std::make_shared<application::StaffManagementUseCases>(
+        m_userRepo, m_roleRepo, m_instructorRepo, m_passwordHasher, m_clock, m_authContext, m_auditService);
+
+    m_attendanceUseCases = std::make_shared<application::AttendanceUseCases>(
+        m_attendanceRepo, m_sessionRepo, m_studentRepo, m_groupRepo, m_courseRepo, m_clock, m_authContext, m_auditService);
+
+    m_payrollUseCases = std::make_shared<application::InstructorPayrollUseCases>(
+        m_sessionRepo, m_payoutRepo, m_instructorRepo, m_groupRepo, m_courseRepo, m_clock, m_authContext, m_auditService);
 
     // 5. Shared-PC Idle auto-lock countdown timer
     connect(m_idleTimer, &QTimer::timeout, this, [this]() {
@@ -87,19 +100,16 @@ bool ApplicationContext::initialize(QString& outError) {
 }
 
 void ApplicationContext::login(const application::LoginResultDto& resultDto) {
-    auto userOpt = m_userRepo->findById(resultDto.userId);
-    if (!userOpt.has_value()) return;
-
-    m_authContext->setCurrentUser(std::move(*userOpt));
     m_isLocked = false;
     m_secondsRemaining = DefaultIdleTimeoutSeconds;
     m_idleTimer->start(1000);
 
-    QStringList roleCodes;
+    QStringList roles;
     for (const auto& r : resultDto.roles) {
-        roleCodes.append(QString::fromStdString(r));
+        roles.append(QString::fromStdString(r));
     }
-    emit userLoggedIn(QString::fromStdString(resultDto.username), roleCodes);
+
+    emit userLoggedIn(QString::fromStdString(resultDto.username), roles);
 }
 
 void ApplicationContext::logout() {
@@ -110,31 +120,23 @@ void ApplicationContext::logout() {
 }
 
 void ApplicationContext::lockSession() {
-    if (m_isLocked) return;
-    m_isLocked = true;
     m_idleTimer->stop();
+    m_isLocked = true;
     emit sessionLocked();
 }
 
 void ApplicationContext::notifyUserActivity() {
-    if (!m_isLocked && m_authContext->isAuthenticated()) {
+    if (m_authContext->isAuthenticated() && !m_isLocked) {
         m_secondsRemaining = DefaultIdleTimeoutSeconds;
     }
 }
 
 bool ApplicationContext::eventFilter(QObject* watched, QEvent* event) {
-    switch (event->type()) {
-        case QEvent::MouseMove:
-        case QEvent::MouseButtonPress:
-        case QEvent::MouseButtonRelease:
-        case QEvent::KeyPress:
-        case QEvent::KeyRelease:
-        case QEvent::Wheel:
-        case QEvent::TouchBegin:
-            notifyUserActivity();
-            break;
-        default:
-            break;
+    if (event->type() == QEvent::KeyPress ||
+        event->type() == QEvent::MouseButtonPress ||
+        event->type() == QEvent::MouseMove ||
+        event->type() == QEvent::Wheel) {
+        notifyUserActivity();
     }
     return QObject::eventFilter(watched, event);
 }

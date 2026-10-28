@@ -8,6 +8,9 @@ add_library(academy_application STATIC
     use_cases/CourseUseCases.cpp
     use_cases/GroupUseCases.cpp
     use_cases/EnrollmentUseCases.cpp
+    use_cases/StaffManagementUseCases.cpp
+    use_cases/AttendanceUseCases.cpp
+    use_cases/InstructorPayrollUseCases.cpp
 )
 
 target_link_libraries(academy_application PUBLIC

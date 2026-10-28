@@ -4,6 +4,7 @@
 #include "domain/UserEntityTests.h"
 #include "domain/MoneyTests.h"
 #include "domain/AcademicDomainTests.h"
+#include "domain/AttendanceAndPayrollTests.h"
 #include "application/AuthorizationTests.h"
 #include "infrastructure/DatabaseMigrationTests.h"
 #include "infrastructure/AuditLogTests.h"
@@ -38,6 +39,12 @@ int main(int argc, char* argv[]) {
         AcademicDomainTests t;
         int s = QTest::qExec(&t, argc, argv);
         std::cout << "[Test] AcademicDomainTests exit: " << s << std::endl;
+        status |= s;
+    }
+    {
+        AttendanceAndPayrollTests t;
+        int s = QTest::qExec(&t, argc, argv);
+        std::cout << "[Test] AttendanceAndPayrollTests exit: " << s << std::endl;
         status |= s;
     }
     {

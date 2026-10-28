@@ -43,6 +43,8 @@ private:
     QLabel* m_notesLabel;
 
     QTableWidget* m_enrollmentsTable;
+    QLabel* m_attendanceRateLabel;
+    QTableWidget* m_attendanceTable;
     QPushButton* m_newEnrollmentBtn;
     QPushButton* m_recordPaymentBtn;
     QPushButton* m_editBtn;

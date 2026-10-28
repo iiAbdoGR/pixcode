@@ -52,6 +52,7 @@ public:
     void setPreferredLanguage(std::string languageCode, std::string currentUtcTimeIso);
     void setActive(bool active, std::string currentUtcTimeIso, bool isLastSuperAdmin);
     void unlock();
+    void resetPasswordByAdmin(std::string newPasswordHash, std::string currentUtcTimeIso);
 
 private:
     std::string m_id;

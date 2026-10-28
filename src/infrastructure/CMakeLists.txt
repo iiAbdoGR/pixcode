@@ -12,6 +12,9 @@ add_library(academy_infrastructure STATIC
     repositories/SqliteGroupRepository.cpp
     repositories/SqliteEnrollmentRepository.cpp
     repositories/SqlitePaymentRepository.cpp
+    repositories/SqliteSessionRepository.cpp
+    repositories/SqliteAttendanceRepository.cpp
+    repositories/SqliteInstructorPayoutRepository.cpp
     logging/AppLogger.cpp
 )
 

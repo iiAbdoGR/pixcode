@@ -5,6 +5,8 @@
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QMessageBox>
 #include "../localization/LocalizationManager.h"
+#include "../dialogs/StaffFormDialog.h"
+#include "../dialogs/ResetPasswordDialog.h"
 
 namespace pixcode::desktop {
 
@@ -26,9 +28,17 @@ void UsersView::setupUi() {
     m_titleLabel = new QLabel(this);
     m_titleLabel->setObjectName("headerTitle");
 
-    m_refreshButton = new QPushButton(this);
-    m_refreshButton->setObjectName("secondaryButton");
-    connect(m_refreshButton, &QPushButton::clicked, this, &UsersView::onRefreshClicked);
+    m_addStaffBtn = new QPushButton(this);
+    m_addStaffBtn->setObjectName("primaryButton");
+    connect(m_addStaffBtn, &QPushButton::clicked, this, &UsersView::onAddStaffClicked);
+
+    m_editStaffBtn = new QPushButton(this);
+    m_editStaffBtn->setObjectName("secondaryButton");
+    connect(m_editStaffBtn, &QPushButton::clicked, this, &UsersView::onEditStaffClicked);
+
+    m_resetPassBtn = new QPushButton(this);
+    m_resetPassBtn->setObjectName("secondaryButton");
+    connect(m_resetPassBtn, &QPushButton::clicked, this, &UsersView::onResetPasswordClicked);
 
     m_unlockButton = new QPushButton(this);
     m_unlockButton->setObjectName("secondaryButton");
@@ -38,8 +48,15 @@ void UsersView::setupUi() {
     m_toggleActiveButton->setObjectName("secondaryButton");
     connect(m_toggleActiveButton, &QPushButton::clicked, this, &UsersView::onToggleUserActive);
 
+    m_refreshButton = new QPushButton(this);
+    m_refreshButton->setObjectName("secondaryButton");
+    connect(m_refreshButton, &QPushButton::clicked, this, &UsersView::onRefreshClicked);
+
     headerLayout->addWidget(m_titleLabel);
     headerLayout->addStretch();
+    headerLayout->addWidget(m_addStaffBtn);
+    headerLayout->addWidget(m_editStaffBtn);
+    headerLayout->addWidget(m_resetPassBtn);
     headerLayout->addWidget(m_unlockButton);
     headerLayout->addWidget(m_toggleActiveButton);
     headerLayout->addWidget(m_refreshButton);
@@ -57,10 +74,14 @@ void UsersView::setupUi() {
 }
 
 void UsersView::updateTranslations() {
+    bool isRtl = LocalizationManager::instance().isRtl();
     m_titleLabel->setText(trText("users.title"));
-    m_refreshButton->setText(LocalizationManager::instance().isRtl() ? "تحديث القائمة" : "Refresh");
-    m_unlockButton->setText(LocalizationManager::instance().isRtl() ? "إلغاء القفل" : "Unlock User");
-    m_toggleActiveButton->setText(LocalizationManager::instance().isRtl() ? "تفعيل/تعطيل" : "Toggle Active");
+    m_addStaffBtn->setText(trText("users.add_staff"));
+    m_editStaffBtn->setText(trText("users.edit_staff"));
+    m_resetPassBtn->setText(trText("users.reset_password"));
+    m_refreshButton->setText(isRtl ? "تحديث" : "Refresh");
+    m_unlockButton->setText(isRtl ? "إلغاء القفل" : "Unlock User");
+    m_toggleActiveButton->setText(isRtl ? "تفعيل/تعطيل" : "Toggle Active");
 
     QStringList headers = {
         trText("users.col.username"),
@@ -78,10 +99,45 @@ void UsersView::onRefreshClicked() {
     refresh();
 }
 
+void UsersView::onAddStaffClicked() {
+    StaffFormDialog dlg(m_appContext, std::nullopt, this);
+    connect(&dlg, &StaffFormDialog::staffSaved, this, &UsersView::refresh);
+    dlg.exec();
+}
+
+void UsersView::onEditStaffClicked() {
+    const int row = m_table->currentRow();
+    if (row < 0) {
+        bool isRtl = LocalizationManager::instance().isRtl();
+        QMessageBox::information(this, isRtl ? "تنبيه" : "Notice",
+            isRtl ? "يرجى اختيار موظف من الجدول أولاً." : "Please select a staff member first.");
+        return;
+    }
+
+    const QString userId = m_table->item(row, 0)->data(Qt::UserRole).toString();
+    StaffFormDialog dlg(m_appContext, userId.toStdString(), this);
+    connect(&dlg, &StaffFormDialog::staffSaved, this, &UsersView::refresh);
+    dlg.exec();
+}
+
+void UsersView::onResetPasswordClicked() {
+    const int row = m_table->currentRow();
+    if (row < 0) {
+        bool isRtl = LocalizationManager::instance().isRtl();
+        QMessageBox::information(this, isRtl ? "تنبيه" : "Notice",
+            isRtl ? "يرجى اختيار موظف من الجدول أولاً." : "Please select a staff member first.");
+        return;
+    }
+
+    const QString userId = m_table->item(row, 0)->data(Qt::UserRole).toString();
+    const QString username = m_table->item(row, 0)->text();
+    ResetPasswordDialog dlg(m_appContext, userId.toStdString(), username.toStdString(), this);
+    dlg.exec();
+}
+
 void UsersView::refresh() {
     m_table->setRowCount(0);
     const auto users = m_appContext->userRepository()->findAll();
-    const auto now = m_appContext->databaseManager()->databasePath(); // Dummy, we use current system time
 
     for (const auto& u : users) {
         const int row = m_table->rowCount();
@@ -157,4 +213,3 @@ void UsersView::onToggleUserActive() {
 }
 
 } // namespace pixcode::desktop
-

@@ -16,6 +16,10 @@ add_executable(academy_desktop
     dialogs/GroupFormDialog.cpp
     dialogs/EnrollmentDialog.cpp
     dialogs/PaymentDialog.cpp
+    dialogs/StaffFormDialog.cpp
+    dialogs/ResetPasswordDialog.cpp
+    dialogs/ScheduleSessionDialog.cpp
+    dialogs/InstructorPayoutDialog.cpp
     navigation/NavigationSidebar.cpp
     views/MainWindow.cpp
     views/DashboardView.cpp
@@ -25,6 +29,8 @@ add_executable(academy_desktop
     views/CoursesView.cpp
     views/RegistrationView.cpp
     views/FinanceView.cpp
+    views/AttendanceView.cpp
+    views/PayrollView.cpp
 )
 
 target_link_libraries(academy_desktop PRIVATE

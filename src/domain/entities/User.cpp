@@ -93,5 +93,13 @@ void User::unlock() {
     m_lockoutUntilUtc = std::nullopt;
 }
 
+void User::resetPasswordByAdmin(std::string newPasswordHash, std::string currentUtcTimeIso) {
+    m_passwordHash = std::move(newPasswordHash);
+    m_mustChangePassword = true;
+    m_failedLoginCount = 0;
+    m_lockoutUntilUtc = std::nullopt;
+    m_updatedAtUtc = std::move(currentUtcTimeIso);
+}
+
 } // namespace pixcode::domain
 

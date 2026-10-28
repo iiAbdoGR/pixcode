@@ -29,7 +29,7 @@ void DatabaseMigrationTests::testPragmasAndMigrations() {
     pixcode::infrastructure::MigrationRunner runner(dbManager);
     QString error;
     QVERIFY2(runner.runMigrations(error), error.toStdString().c_str());
-    QCOMPARE(runner.getCurrentVersion(), 2);
+    QCOMPARE(runner.getCurrentVersion(), 3);
 
     QSqlQuery tableQuery(db);
     QVERIFY(tableQuery.exec("SELECT COUNT(*) FROM roles;"));
@@ -43,7 +43,13 @@ void DatabaseMigrationTests::testPragmasAndMigrations() {
     QVERIFY(tableQuery.exec("SELECT COUNT(*) FROM enrollments;"));
     QVERIFY(tableQuery.exec("SELECT COUNT(*) FROM payments;"));
 
+    // Verify V003 attendance and payroll tables exist
+    QVERIFY(tableQuery.exec("SELECT COUNT(*) FROM sessions;"));
+    QVERIFY(tableQuery.exec("SELECT COUNT(*) FROM session_attendance;"));
+    QVERIFY(tableQuery.exec("SELECT COUNT(*) FROM instructor_rate_history;"));
+    QVERIFY(tableQuery.exec("SELECT COUNT(*) FROM instructor_payouts;"));
+
     // Idempotency: second run succeeds
     QVERIFY2(runner.runMigrations(error), error.toStdString().c_str());
-    QCOMPARE(runner.getCurrentVersion(), 2);
+    QCOMPARE(runner.getCurrentVersion(), 3);
 }
