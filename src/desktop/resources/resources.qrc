@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>migrations/sql/V001__initial_schema.sql</file>
+    </qresource>
+</RCC>
+

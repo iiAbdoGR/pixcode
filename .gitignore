@@ -1,0 +1,20 @@
+# Build Artifacts
+build/
+*.o
+*.obj
+*.exe
+*.dll
+*.a
+*.lib
+
+# Local database & logs
+*.db
+*.db-wal
+*.db-shm
+*.log
+logs/
+
+# IDE files
+.vscode/
+.vs/
+*.user
