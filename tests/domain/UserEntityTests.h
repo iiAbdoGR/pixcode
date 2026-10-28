@@ -8,3 +8,4 @@ private slots:
     void testLockoutAfterMaxFailedAttempts();
     void testLastSuperAdminDeactivationBlocked();
 };
+

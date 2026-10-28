@@ -8,3 +8,4 @@ private slots:
     void testSuperAdminInherentPermissions();
     void testScopedRolePermissions();
 };
+

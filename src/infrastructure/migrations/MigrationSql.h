@@ -202,3 +202,4 @@ INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES
 )SQL";
 
 } // namespace pixcode::infrastructure
+

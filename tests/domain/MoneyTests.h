@@ -8,3 +8,4 @@ private slots:
     void testBasicArithmetic();
     void testInstallmentRemainderPolicy();
 };
+

@@ -7,3 +7,4 @@ class AuditLogTests : public QObject {
 private slots:
     void testAuditLogAppendAndQuery();
 };
+
