@@ -15,8 +15,9 @@ public:
     [[nodiscard]] virtual std::optional<domain::Enrollment> findActive(std::int64_t studentId, std::int64_t groupId) = 0;
     [[nodiscard]] virtual std::vector<domain::Enrollment> findByStudent(std::int64_t studentId) = 0;
     [[nodiscard]] virtual std::vector<domain::Enrollment> findByGroup(std::int64_t groupId) = 0;
+    [[nodiscard]] virtual std::int64_t countActiveInGroup(std::int64_t groupId) = 0;
+    [[nodiscard]] virtual std::vector<domain::Enrollment> findAll() = 0;
     virtual domain::Enrollment save(const domain::Enrollment& enrollment) = 0;
 };
 
 } // namespace pixcode::application
-

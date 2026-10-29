@@ -43,6 +43,7 @@ public:
     void clearRoles() noexcept { m_roles.clear(); }
 
     [[nodiscard]] bool isSuperAdmin() const noexcept;
+    [[nodiscard]] bool isOwner() const noexcept;
     [[nodiscard]] bool hasPermission(std::string_view permissionCode) const noexcept;
     [[nodiscard]] bool isLockedOut(std::string_view currentUtcTimeIso) const noexcept;
 

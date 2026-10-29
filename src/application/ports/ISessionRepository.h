@@ -31,8 +31,10 @@ public:
 
     // Aggregate calculations for instructor payroll
     [[nodiscard]] virtual std::int64_t sumApprovedEarnings(std::int64_t instructorId, const std::string& fromDate = "", const std::string& toDate = "") = 0;
+    [[nodiscard]] virtual std::int64_t sumAllApprovedEarnings() = 0;
     [[nodiscard]] virtual int sumApprovedMinutes(std::int64_t instructorId, const std::string& fromDate = "", const std::string& toDate = "") = 0;
     [[nodiscard]] virtual int countLessonsTaught(std::int64_t instructorId, const std::string& fromDate = "", const std::string& toDate = "") = 0;
 };
 
 } // namespace pixcode::application
+

@@ -2,6 +2,7 @@
 #include "../dialogs/CourseFormDialog.h"
 #include "../dialogs/GroupFormDialog.h"
 #include "../dialogs/EnrollmentDialog.h"
+#include "../dialogs/InstructorFormDialog.h"
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QHeaderView>
@@ -21,6 +22,18 @@ CoursesView::CoursesView(std::shared_ptr<ApplicationContext> appContext, QWidget
             this, &CoursesView::updateTranslations);
 
     refresh();
+}
+
+void CoursesView::selectCoursesTab() {
+    if (m_tabs) m_tabs->setCurrentIndex(0);
+}
+
+void CoursesView::selectGroupsTab() {
+    if (m_tabs) m_tabs->setCurrentIndex(1);
+}
+
+void CoursesView::selectInstructorsTab() {
+    if (m_tabs) m_tabs->setCurrentIndex(2);
 }
 
 void CoursesView::setupUi() {
@@ -69,6 +82,7 @@ void CoursesView::setupUi() {
     m_coursesTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_coursesTable->horizontalHeader()->setStretchLastSection(true);
     m_coursesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    connect(m_coursesTable, &QTableWidget::cellDoubleClicked, this, &CoursesView::onEditCourseClicked);
     cLayout->addWidget(m_coursesTable);
 
     // Tab 2: Groups
@@ -108,94 +122,147 @@ void CoursesView::setupUi() {
     m_groupsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_groupsTable->horizontalHeader()->setStretchLastSection(true);
     m_groupsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    connect(m_groupsTable, &QTableWidget::cellDoubleClicked, this, &CoursesView::onEditGroupClicked);
     gLayout->addWidget(m_groupsTable);
 
-    m_tabs->addTab(m_coursesTab, "الكورسات");
-    m_tabs->addTab(m_groupsTab, "المجموعات الدراسية");
+    // Tab 3: Instructors
+    m_instructorsTab = new QWidget(this);
+    auto* instLayout = new QVBoxLayout(m_instructorsTab);
+    instLayout->setContentsMargins(16, 16, 16, 16);
+    instLayout->setSpacing(12);
 
+    auto* instActions = new QHBoxLayout();
+    m_addInstructorBtn = new QPushButton(this);
+    m_addInstructorBtn->setObjectName("primaryButton");
+    connect(m_addInstructorBtn, &QPushButton::clicked, this, &CoursesView::onAddInstructorClicked);
+
+    m_editInstructorBtn = new QPushButton(this);
+    m_editInstructorBtn->setObjectName("secondaryButton");
+    connect(m_editInstructorBtn, &QPushButton::clicked, this, &CoursesView::onEditInstructorClicked);
+
+    m_refreshInstructorsBtn = new QPushButton(this);
+    m_refreshInstructorsBtn->setObjectName("secondaryButton");
+    connect(m_refreshInstructorsBtn, &QPushButton::clicked, this, &CoursesView::loadInstructors);
+
+    instActions->addWidget(m_addInstructorBtn);
+    instActions->addWidget(m_editInstructorBtn);
+    instActions->addStretch();
+    instActions->addWidget(m_refreshInstructorsBtn);
+    instLayout->addLayout(instActions);
+
+    m_instructorsTable = new QTableWidget(this);
+    m_instructorsTable->setColumnCount(6);
+    m_instructorsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_instructorsTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_instructorsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_instructorsTable->horizontalHeader()->setStretchLastSection(true);
+    m_instructorsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    connect(m_instructorsTable, &QTableWidget::cellDoubleClicked, this, &CoursesView::onEditInstructorClicked);
+    instLayout->addWidget(m_instructorsTable);
+
+    m_tabs->addTab(m_coursesTab, "");
+    m_tabs->addTab(m_groupsTab, "");
+    m_tabs->addTab(m_instructorsTab, "");
     mainLayout->addWidget(m_tabs);
 }
 
 void CoursesView::updateTranslations() {
     bool isRtl = LocalizationManager::instance().isRtl();
+    setLayoutDirection(isRtl ? Qt::RightToLeft : Qt::LeftToRight);
 
-    m_titleLabel->setText(isRtl ? "إدارة الكورسات والمجموعات الدراسية" : "Course & Group Management");
-    m_tabs->setTabText(0, isRtl ? "الكورسات (قوالب الدورات)" : "Courses (Templates)");
-    m_tabs->setTabText(1, isRtl ? "المجموعات الدراسية (الفصول الفعلية)" : "Class Groups (Scheduled)");
+    m_titleLabel->setText(LocalizationManager::instance().get("nav.courses", "Academic Courses & Groups"));
 
-    m_addCourseBtn->setText(isRtl ? "+ كورس جديد" : "+ Add Course");
+    m_tabs->setTabText(0, isRtl ? "الكورسات" : "Courses");
+    m_tabs->setTabText(1, isRtl ? "المجموعات" : "Groups");
+    m_tabs->setTabText(2, isRtl ? "المحاضرون" : "Instructors");
+
+    // Course table headers
+    m_coursesTable->setHorizontalHeaderLabels({
+        isRtl ? "اسم الكورس" : "Course Name",
+        isRtl ? "المدة (أسابيع)" : "Duration (Wks)",
+        isRtl ? "السعر الافتراضي" : "Default Fee",
+        isRtl ? "الحالة" : "Status"
+    });
+
+    m_addCourseBtn->setText(isRtl ? "+ إضافة كورس" : "+ Add Course");
     m_editCourseBtn->setText(isRtl ? "تعديل الكورس" : "Edit Course");
     m_refreshCoursesBtn->setText(isRtl ? "تحديث" : "Refresh");
 
-    m_coursesTable->setHorizontalHeaderLabels({
-        isRtl ? "اسم الكورس" : "Course Name",
-        isRtl ? "المدة المقترحة" : "Duration",
-        isRtl ? "السعر الافتراضي" : "Default Fee",
-        isRtl ? "الوصف" : "Description"
-    });
-
-    m_addGroupBtn->setText(isRtl ? "+ إنشاء مجموعة جديدة" : "+ Create New Group");
-    m_editGroupBtn->setText(isRtl ? "تعديل المجموعة" : "Edit Group");
-    m_enrollInGroupBtn->setText(isRtl ? "تسجيل طالب في هذه المجموعة" : "Enroll Student in Group");
-    m_refreshGroupsBtn->setText(isRtl ? "تحديث" : "Refresh");
-
+    // Group table headers
     m_groupsTable->setHorizontalHeaderLabels({
         isRtl ? "اسم المجموعة" : "Group Name",
         isRtl ? "الكورس" : "Course",
-        isRtl ? "المدرب" : "Instructor",
+        isRtl ? "المحاضر" : "Instructor",
         isRtl ? "المواعيد" : "Schedule",
-        isRtl ? "المسجلين / السعة" : "Enrolled / Cap",
-        isRtl ? "رسوم المجموعة" : "Group Fee",
+        isRtl ? "العدد / السعة" : "Enrolled / Cap",
+        isRtl ? "السعر" : "Fee",
         isRtl ? "الحالة" : "Status"
     });
+
+    m_addGroupBtn->setText(isRtl ? "+ فتح مجموعة" : "+ Open Group");
+    m_editGroupBtn->setText(isRtl ? "تعديل المجموعة" : "Edit Group");
+    m_enrollInGroupBtn->setText(isRtl ? "تسجيل طالب" : "Enroll Student");
+    m_refreshGroupsBtn->setText(isRtl ? "تحديث" : "Refresh");
+
+    // Instructor table headers
+    m_instructorsTable->setHorizontalHeaderLabels({
+        isRtl ? "اسم المحاضر" : "Instructor Name",
+        isRtl ? "رقم الهاتف" : "Phone",
+        isRtl ? "التخصص" : "Specialization",
+        isRtl ? "نوع الاستحقاق" : "Compensation Mode",
+        isRtl ? "القيمة الأساسية" : "Base Rate",
+        isRtl ? "الحالة" : "Status"
+    });
+
+    m_addInstructorBtn->setText(isRtl ? "+ إضافة محاضر" : "+ Add Instructor");
+    m_editInstructorBtn->setText(isRtl ? "تعديل المحاضر" : "Edit Instructor");
+    m_refreshInstructorsBtn->setText(isRtl ? "تحديث" : "Refresh");
 }
 
 void CoursesView::refresh() {
     loadCourses();
     loadGroups();
+    loadInstructors();
 }
 
 void CoursesView::loadCourses() {
-    application::CourseFilter filter;
-    filter.pageSize = 200;
-    auto res = m_appContext->courseUseCases()->listCourses(filter);
+    bool isRtl = LocalizationManager::instance().isRtl();
+    auto res = m_appContext->courseUseCases()->listCourses({});
     if (!res.isOk()) return;
 
-    const auto& courses = res.value();
-    m_coursesTable->setRowCount(static_cast<int>(courses.size()));
+    const auto& list = res.value();
+    m_coursesTable->setRowCount(static_cast<int>(list.size()));
 
-    for (int i = 0; i < static_cast<int>(courses.size()); ++i) {
-        const auto& c = courses[i];
-
+    for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+        const auto& c = list[i];
         auto* itemName = new QTableWidgetItem(QString::fromStdString(c.name));
         itemName->setData(Qt::UserRole, QVariant::fromValue(static_cast<qint64>(c.id)));
         itemName->setFont(QFont("Segoe UI", 9, QFont::Bold));
 
-        auto* itemDur = new QTableWidgetItem(QString::number(c.durationWeeks) + " weeks");
+        auto* itemDur = new QTableWidgetItem(QString("%1 %2").arg(c.durationWeeks).arg(isRtl ? "أسبوع" : "weeks"));
+
         domain::Money fee(c.defaultFeePiastres);
         auto* itemFee = new QTableWidgetItem(QString::fromStdString(fee.format()));
-        auto* itemDesc = new QTableWidgetItem(QString::fromStdString(c.description));
+
+        auto* itemStatus = new QTableWidgetItem(c.status == "active" ? (isRtl ? "نشط" : "Active") : (isRtl ? "معطل" : "Inactive"));
 
         m_coursesTable->setItem(i, 0, itemName);
         m_coursesTable->setItem(i, 1, itemDur);
         m_coursesTable->setItem(i, 2, itemFee);
-        m_coursesTable->setItem(i, 3, itemDesc);
+        m_coursesTable->setItem(i, 3, itemStatus);
     }
 }
 
 void CoursesView::loadGroups() {
     bool isRtl = LocalizationManager::instance().isRtl();
-    application::GroupFilter filter;
-    filter.pageSize = 200;
-    auto res = m_appContext->groupUseCases()->listGroups(filter);
+    auto res = m_appContext->groupUseCases()->listGroups({});
     if (!res.isOk()) return;
 
-    const auto& groups = res.value();
-    m_groupsTable->setRowCount(static_cast<int>(groups.size()));
+    const auto& list = res.value();
+    m_groupsTable->setRowCount(static_cast<int>(list.size()));
 
-    for (int i = 0; i < static_cast<int>(groups.size()); ++i) {
-        const auto& g = groups[i];
-
+    for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+        const auto& g = list[i];
         auto* itemName = new QTableWidgetItem(QString::fromStdString(g.name));
         itemName->setData(Qt::UserRole, QVariant::fromValue(static_cast<qint64>(g.id)));
         itemName->setFont(QFont("Segoe UI", 9, QFont::Bold));
@@ -224,6 +291,44 @@ void CoursesView::loadGroups() {
         m_groupsTable->setItem(i, 4, itemCap);
         m_groupsTable->setItem(i, 5, itemFee);
         m_groupsTable->setItem(i, 6, itemStatus);
+    }
+}
+
+void CoursesView::loadInstructors() {
+    bool isRtl = LocalizationManager::instance().isRtl();
+    auto res = m_appContext->payrollUseCases()->listInstructors();
+    if (!res.isOk()) return;
+
+    const auto& list = res.value();
+    m_instructorsTable->setRowCount(static_cast<int>(list.size()));
+
+    for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+        const auto& inst = list[i];
+        auto* itemName = new QTableWidgetItem(QString::fromStdString(inst.fullName));
+        itemName->setData(Qt::UserRole, QVariant::fromValue(static_cast<qint64>(inst.id)));
+        itemName->setFont(QFont("Segoe UI", 9, QFont::Bold));
+
+        auto* itemPhone = new QTableWidgetItem(QString::fromStdString(inst.phone));
+        auto* itemSpec = new QTableWidgetItem(QString::fromStdString(inst.specialization));
+
+        QString compStr = isRtl ? "بالساعة" : "Hourly";
+        if (inst.compensationType == "per_session") compStr = isRtl ? "بالحصة" : "Per Session";
+        else if (inst.compensationType == "monthly_salary") compStr = isRtl ? "راتب شهري" : "Monthly Salary";
+        else if (inst.compensationType == "fixed_contract") compStr = isRtl ? "عقد مقطوع" : "Fixed Contract";
+        auto* itemComp = new QTableWidgetItem(compStr);
+
+        std::int64_t rateVal = (inst.compensationType == "monthly_salary") ? inst.monthlySalaryPiastres : inst.baseRatePiastres;
+        domain::Money rate(rateVal);
+        auto* itemRate = new QTableWidgetItem(QString::fromStdString(rate.format()));
+
+        auto* itemStatus = new QTableWidgetItem(inst.status == "active" ? (isRtl ? "نشط" : "Active") : (isRtl ? "معطل" : "Inactive"));
+
+        m_instructorsTable->setItem(i, 0, itemName);
+        m_instructorsTable->setItem(i, 1, itemPhone);
+        m_instructorsTable->setItem(i, 2, itemSpec);
+        m_instructorsTable->setItem(i, 3, itemComp);
+        m_instructorsTable->setItem(i, 4, itemRate);
+        m_instructorsTable->setItem(i, 5, itemStatus);
     }
 }
 
@@ -286,5 +391,26 @@ void CoursesView::onEnrollInGroupClicked() {
     }
 }
 
-} // namespace pixcode::desktop
+void CoursesView::onAddInstructorClicked() {
+    InstructorFormDialog dlg(m_appContext, std::nullopt, this);
+    if (dlg.exec() == QDialog::Accepted) {
+        loadInstructors();
+    }
+}
 
+void CoursesView::onEditInstructorClicked() {
+    bool isRtl = LocalizationManager::instance().isRtl();
+    int row = m_instructorsTable->currentRow();
+    if (row < 0) {
+        QMessageBox::warning(this, isRtl ? "تنبيه" : "Selection Required",
+                             isRtl ? "يرجى تحديد محاضر من الجدول." : "Please select an instructor to edit.");
+        return;
+    }
+    std::int64_t instId = m_instructorsTable->item(row, 0)->data(Qt::UserRole).toLongLong();
+    InstructorFormDialog dlg(m_appContext, instId, this);
+    if (dlg.exec() == QDialog::Accepted) {
+        loadInstructors();
+    }
+}
+
+} // namespace pixcode::desktop

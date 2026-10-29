@@ -20,6 +20,9 @@ add_executable(academy_desktop
     dialogs/ResetPasswordDialog.cpp
     dialogs/ScheduleSessionDialog.cpp
     dialogs/InstructorPayoutDialog.cpp
+    dialogs/CancelSubscriptionDialog.cpp
+    dialogs/RestoreSubscriptionDialog.cpp
+    dialogs/InstructorFormDialog.cpp
     navigation/NavigationSidebar.cpp
     views/MainWindow.cpp
     views/DashboardView.cpp

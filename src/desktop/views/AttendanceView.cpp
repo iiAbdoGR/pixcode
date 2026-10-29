@@ -31,21 +31,43 @@ void AttendanceView::setupUi() {
     m_titleLabel->setObjectName("headerTitle");
     mainLayout->addWidget(m_titleLabel);
 
-    // Controls bar
-    auto* controlsLayout = new QHBoxLayout();
-    controlsLayout->setSpacing(12);
+    // Controls bar: Organized into 2 neat rows to prevent overlapping on any resolution
+    auto* selectionRow = new QHBoxLayout();
+    selectionRow->setSpacing(12);
 
     auto* groupLbl = new QLabel(trText("attendance.select_group"), this);
     m_groupCombo = new QComboBox(this);
-    m_groupCombo->setMinimumWidth(200);
-
-    auto* sessionLbl = new QLabel(trText("attendance.select_session"), this);
-    m_sessionCombo = new QComboBox(this);
-    m_sessionCombo->setMinimumWidth(220);
+    m_groupCombo->setMinimumWidth(180);
 
     m_addSessionBtn = new QPushButton(this);
     m_addSessionBtn->setObjectName("secondaryButton");
     connect(m_addSessionBtn, &QPushButton::clicked, this, &AttendanceView::onAddSessionClicked);
+
+    auto* sessionLbl = new QLabel(trText("attendance.select_session"), this);
+    m_sessionCombo = new QComboBox(this);
+    m_sessionCombo->setMinimumWidth(240);
+
+    m_editSessionBtn = new QPushButton(this);
+    m_editSessionBtn->setObjectName("secondaryButton");
+    connect(m_editSessionBtn, &QPushButton::clicked, this, &AttendanceView::onEditSessionClicked);
+
+    selectionRow->addWidget(groupLbl);
+    selectionRow->addWidget(m_groupCombo);
+    selectionRow->addWidget(m_addSessionBtn);
+    selectionRow->addSpacing(16);
+    selectionRow->addWidget(sessionLbl);
+    selectionRow->addWidget(m_sessionCombo);
+    selectionRow->addWidget(m_editSessionBtn);
+    selectionRow->addStretch();
+
+    mainLayout->addLayout(selectionRow);
+
+    // Actions & stats bar
+    auto* actionsRow = new QHBoxLayout();
+    actionsRow->setSpacing(12);
+
+    m_statsLabel = new QLabel(this);
+    m_statsLabel->setStyleSheet("background-color: #2E3A44; color: #FFFFFF; padding: 10px 16px; border-radius: 6px; font-weight: bold; font-size: 13px;");
 
     m_markAllPresentBtn = new QPushButton(this);
     m_markAllPresentBtn->setObjectName("secondaryButton");
@@ -55,22 +77,12 @@ void AttendanceView::setupUi() {
     m_saveAttendanceBtn->setObjectName("primaryButton");
     connect(m_saveAttendanceBtn, &QPushButton::clicked, this, &AttendanceView::onSaveAttendanceClicked);
 
-    controlsLayout->addWidget(groupLbl);
-    controlsLayout->addWidget(m_groupCombo);
-    controlsLayout->addWidget(m_addSessionBtn);
-    controlsLayout->addSpacing(16);
-    controlsLayout->addWidget(sessionLbl);
-    controlsLayout->addWidget(m_sessionCombo);
-    controlsLayout->addStretch();
-    controlsLayout->addWidget(m_markAllPresentBtn);
-    controlsLayout->addWidget(m_saveAttendanceBtn);
+    actionsRow->addWidget(m_statsLabel, 1);
+    actionsRow->addSpacing(16);
+    actionsRow->addWidget(m_markAllPresentBtn);
+    actionsRow->addWidget(m_saveAttendanceBtn);
 
-    mainLayout->addLayout(controlsLayout);
-
-    // Stats bar
-    m_statsLabel = new QLabel(this);
-    m_statsLabel->setStyleSheet("background-color: #2E3A44; color: #FFFFFF; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 13px;");
-    mainLayout->addWidget(m_statsLabel);
+    mainLayout->addLayout(actionsRow);
 
     // Table
     m_table = new QTableWidget(this);
@@ -79,9 +91,12 @@ void AttendanceView::setupUi() {
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
+    m_table->setColumnWidth(1, 140);
+    m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
+    m_table->setColumnWidth(2, 130);
+    m_table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
+    m_table->setColumnWidth(3, 120);
     m_table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
 
     mainLayout->addWidget(m_table);
@@ -91,8 +106,10 @@ void AttendanceView::setupUi() {
 }
 
 void AttendanceView::updateTranslations() {
+    bool isRtl = LocalizationManager::instance().isRtl();
     m_titleLabel->setText(trText("attendance.title"));
     m_addSessionBtn->setText(trText("attendance.schedule_session"));
+    m_editSessionBtn->setText(isRtl ? "تعديل الموعد" : "Edit Time");
     m_markAllPresentBtn->setText(trText("attendance.mark_all_present"));
     m_saveAttendanceBtn->setText(trText("attendance.save"));
 
@@ -162,6 +179,7 @@ void AttendanceView::loadSessionsForGroup(std::int64_t groupId) {
         m_currentSessionId = m_sessionCombo->currentData().toLongLong();
         loadAttendanceForSession(m_currentSessionId);
     } else {
+        m_currentSessionId = 0;
         m_table->setRowCount(0);
         m_statsLabel->setText(LocalizationManager::instance().isRtl() 
             ? "لا توجد حصص مسجلة لهذه المجموعة. اضغط على (+ إضافة موعد حصة) لجدولة أول حصة."
@@ -177,7 +195,20 @@ void AttendanceView::onSessionChanged(int index) {
 
 void AttendanceView::onAddSessionClicked() {
     if (m_currentGroupId <= 0) return;
-    ScheduleSessionDialog dlg(m_appContext, m_currentGroupId, this);
+    ScheduleSessionDialog dlg(m_appContext, m_currentGroupId, std::nullopt, this);
+    if (dlg.exec() == QDialog::Accepted) {
+        loadSessionsForGroup(m_currentGroupId);
+    }
+}
+
+void AttendanceView::onEditSessionClicked() {
+    bool isRtl = LocalizationManager::instance().isRtl();
+    if (m_currentSessionId <= 0) {
+        QMessageBox::warning(this, isRtl ? "تنبيه" : "Notice",
+                             isRtl ? "يرجى اختيار حصة من القائمة لتعديل موعدها." : "Please select a session to edit.");
+        return;
+    }
+    ScheduleSessionDialog dlg(m_appContext, m_currentGroupId, m_currentSessionId, this);
     if (dlg.exec() == QDialog::Accepted) {
         loadSessionsForGroup(m_currentGroupId);
     }
@@ -185,7 +216,6 @@ void AttendanceView::onAddSessionClicked() {
 
 void AttendanceView::loadAttendanceForSession(std::int64_t sessionId) {
     m_table->setRowCount(0);
-    bool isRtl = LocalizationManager::instance().isRtl();
 
     auto existingRes = m_appContext->attendanceUseCases()->getSessionAttendance(sessionId);
     if (existingRes.isOk() && !existingRes.value().empty()) {
@@ -198,7 +228,9 @@ void AttendanceView::loadAttendanceForSession(std::int64_t sessionId) {
             nameItem->setData(Qt::UserRole, static_cast<qint64>(item.studentId));
             m_table->setItem(row, 0, nameItem);
 
-            m_table->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(item.studentCode)));
+            auto studentOpt = m_appContext->studentRepository()->findById(item.studentId);
+            QString phone = studentOpt.has_value() ? QString::fromStdString(studentOpt->phone) : QString::fromStdString(item.studentCode);
+            m_table->setItem(row, 1, new QTableWidgetItem(phone));
 
             auto* statusCombo = new QComboBox(m_table);
             statusCombo->addItem(trText("attendance.status.present"), "present");
@@ -313,16 +345,21 @@ void AttendanceView::onSaveAttendanceClicked() {
         batch.items.push_back(item);
     }
 
-    auto res = m_appContext->attendanceUseCases()->recordSessionAttendance(batch);
-    if (!res.isOk()) {
-        QMessageBox::critical(this, isRtl ? "خطأ" : "Error", QString::fromStdString(res.error().message()));
+    try {
+        auto res = m_appContext->attendanceUseCases()->recordSessionAttendance(batch);
+        if (!res.isOk()) {
+            QMessageBox::critical(this, isRtl ? "خطأ" : "Error", QString::fromStdString(res.error().message()));
+            return;
+        }
+
+        QMessageBox::information(this, isRtl ? "تم الحفظ" : "Success",
+            isRtl ? "تم حفظ دفتر الحضور بنجاح." : "Attendance records saved successfully.");
+
+        loadAttendanceForSession(m_currentSessionId);
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, isRtl ? "خطأ" : "Error", QString::fromStdString(e.what()));
         return;
     }
-
-    QMessageBox::information(this, isRtl ? "تم الحفظ" : "Success",
-        isRtl ? "تم حفظ دفتر الحضور بنجاح." : "Attendance records saved successfully.");
-
-    loadAttendanceForSession(m_currentSessionId);
 }
 
 } // namespace pixcode::desktop

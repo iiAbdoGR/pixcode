@@ -18,6 +18,13 @@ public:
     [[nodiscard]] bool isRtl() const noexcept { return m_currentLanguage == "ar"; }
 
     [[nodiscard]] QString translate(const QString& key) const;
+    [[nodiscard]] QString get(const QString& key, const QString& fallback = QString()) const {
+        QString res = translate(key);
+        if (res == key && !fallback.isEmpty()) {
+            return fallback;
+        }
+        return res;
+    }
 
 signals:
     void languageChanged(const QString& newLanguageCode);

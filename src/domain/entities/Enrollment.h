@@ -11,7 +11,8 @@ namespace pixcode::domain {
 enum class EnrollmentStatus {
     Active,
     Cancelled,
-    Transferred
+    Transferred,
+    Completed
 };
 
 struct Enrollment {
@@ -24,6 +25,11 @@ struct Enrollment {
     EnrollmentStatus status{EnrollmentStatus::Active};
     std::string enrolledAtUtc;
     std::optional<std::string> cancelledAtUtc;
+    std::optional<std::string> cancellationReason;
+    std::optional<std::string> cancelledByUserId;
+    std::optional<std::string> restoredAtUtc;
+    std::optional<std::string> restorationReason;
+    std::optional<std::string> restoredByUserId;
     std::string notes;
 
     static std::optional<DomainError> validate(std::int64_t studentId, std::int64_t groupId, Money agreedFee, Money discount) {
@@ -47,4 +53,3 @@ struct Enrollment {
 };
 
 } // namespace pixcode::domain
-

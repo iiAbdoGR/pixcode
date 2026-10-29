@@ -14,6 +14,8 @@ public:
     [[nodiscard]] std::optional<domain::Enrollment> findActive(std::int64_t studentId, std::int64_t groupId) override;
     [[nodiscard]] std::vector<domain::Enrollment> findByStudent(std::int64_t studentId) override;
     [[nodiscard]] std::vector<domain::Enrollment> findByGroup(std::int64_t groupId) override;
+    [[nodiscard]] std::int64_t countActiveInGroup(std::int64_t groupId) override;
+    [[nodiscard]] std::vector<domain::Enrollment> findAll() override;
     domain::Enrollment save(const domain::Enrollment& enrollment) override;
 
 private:
@@ -23,4 +25,3 @@ private:
 };
 
 } // namespace pixcode::infrastructure
-

@@ -11,6 +11,7 @@ add_library(academy_application STATIC
     use_cases/StaffManagementUseCases.cpp
     use_cases/AttendanceUseCases.cpp
     use_cases/InstructorPayrollUseCases.cpp
+    use_cases/DashboardUseCases.cpp
 )
 
 target_link_libraries(academy_application PUBLIC

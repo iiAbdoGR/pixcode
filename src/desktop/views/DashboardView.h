@@ -5,8 +5,11 @@
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QGridLayout>
+#include <QtWidgets/QGroupBox>
 #include <memory>
 #include "../app/ApplicationContext.h"
+#include "application/dto/DashboardDtos.h"
 
 namespace pixcode::desktop {
 
@@ -26,12 +29,19 @@ private:
 
     QLabel* m_welcomeLabel;
     QLabel* m_roleBadge;
-    QLabel* m_dbHealthLabel;
-    QLabel* m_userCountLabel;
-    QLabel* m_adminCountLabel;
+
+    // Operational Cards
     QLabel* m_studentsCountLabel;
     QLabel* m_groupsCountLabel;
-    QLabel* m_revenueLabel;
+    QLabel* m_todaySessionsLabel;
+    QLabel* m_attendanceRateLabel;
+
+    // Financial Cards (Owner only)
+    QGroupBox* m_financialGroup;
+    QLabel* m_totalIncomeLabel;
+    QLabel* m_receivablesLabel;
+    QLabel* m_instructorPayablesLabel;
+    QLabel* m_netCashLabel;
 };
 
 } // namespace pixcode::desktop

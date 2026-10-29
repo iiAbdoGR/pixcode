@@ -13,6 +13,18 @@ struct EnrollStudentCommand {
     std::string notes;
 };
 
+struct CancelSubscriptionCommand {
+    std::int64_t enrollmentId{0};
+    std::string reason;
+    std::string cancelledByUserId;
+};
+
+struct RestoreSubscriptionCommand {
+    std::int64_t enrollmentId{0};
+    std::string reason;
+    std::string restoredByUserId;
+};
+
 struct EnrollmentDto {
     std::int64_t id{0};
     std::int64_t studentId{0};
@@ -28,6 +40,13 @@ struct EnrollmentDto {
     std::int64_t balancePiastres{0};
     std::string status;
     std::string enrolledAtUtc;
+    std::optional<std::string> cancelledAtUtc;
+    std::optional<std::string> cancellationReason;
+    std::optional<std::string> cancelledByUserId;
+    std::optional<std::string> restoredAtUtc;
+    std::optional<std::string> restorationReason;
+    std::optional<std::string> restoredByUserId;
+    std::string notes;
 };
 
 struct RecordPaymentCommand {
@@ -51,19 +70,44 @@ struct PaymentDto {
 
 struct InstructorDto {
     std::int64_t id{0};
-    std::optional<std::string> userId;
+    std::optional<std::string> userId; // legacy optional
     std::string fullName;
     std::string phone;
+    std::string specialization;
+    std::string compensationType{"hourly"}; // "hourly", "per_session", "monthly_salary", "fixed_contract"
+    std::int64_t baseRatePiastres{0};
+    std::int64_t monthlySalaryPiastres{0};
+    std::string contractStartDate;
+    std::string contractEndDate;
     std::string notes;
-    std::string status;
+    std::string status{"active"};
 };
 
 struct CreateInstructorCommand {
     std::string fullName;
     std::string phone;
+    std::string specialization;
+    std::string compensationType{"hourly"};
+    std::int64_t baseRatePiastres{0};
+    std::int64_t monthlySalaryPiastres{0};
+    std::string contractStartDate;
+    std::string contractEndDate;
     std::string notes;
-    std::optional<std::string> userId;
+    std::optional<std::string> userId{std::nullopt}; // legacy optional
+};
+
+struct UpdateInstructorCommand {
+    std::int64_t id{0};
+    std::string fullName;
+    std::string phone;
+    std::string specialization;
+    std::string compensationType{"hourly"};
+    std::int64_t baseRatePiastres{0};
+    std::int64_t monthlySalaryPiastres{0};
+    std::string contractStartDate;
+    std::string contractEndDate;
+    std::string notes;
+    std::string status{"active"};
 };
 
 } // namespace pixcode::application
-

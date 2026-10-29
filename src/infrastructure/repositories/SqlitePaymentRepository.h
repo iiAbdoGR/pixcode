@@ -15,6 +15,7 @@ public:
     domain::Payment save(const domain::Payment& payment) override;
     [[nodiscard]] std::string nextReceiptNumber() override;
     [[nodiscard]] std::int64_t totalPaid(std::int64_t enrollmentId) override;
+    [[nodiscard]] std::int64_t totalAllPayments() override;
 
 private:
     [[nodiscard]] domain::Payment mapRowToPayment(const class QSqlQuery& query);
@@ -23,4 +24,3 @@ private:
 };
 
 } // namespace pixcode::infrastructure
-

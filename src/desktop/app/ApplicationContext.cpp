@@ -69,6 +69,9 @@ ApplicationContext::ApplicationContext(const QString& dbPath, QObject* parent)
     m_payrollUseCases = std::make_shared<application::InstructorPayrollUseCases>(
         m_sessionRepo, m_payoutRepo, m_instructorRepo, m_groupRepo, m_courseRepo, m_clock, m_authContext, m_auditService);
 
+    m_dashboardUseCases = std::make_shared<application::DashboardUseCases>(
+        m_studentRepo, m_groupRepo, m_sessionRepo, m_attendanceRepo, m_enrollmentRepo, m_paymentRepo, m_payoutRepo, m_clock, m_authContext);
+
     // 5. Shared-PC Idle auto-lock countdown timer
     connect(m_idleTimer, &QTimer::timeout, this, [this]() {
         if (!m_authContext->isAuthenticated() || m_isLocked) return;
@@ -103,6 +106,14 @@ void ApplicationContext::login(const application::LoginResultDto& resultDto) {
     m_isLocked = false;
     m_secondsRemaining = DefaultIdleTimeoutSeconds;
     m_idleTimer->start(1000);
+
+    auto userOpt = m_userRepo->findById(resultDto.userId);
+    if (!userOpt.has_value()) {
+        userOpt = m_userRepo->findByUsername(resultDto.username);
+    }
+    if (userOpt.has_value()) {
+        m_authContext->setCurrentUser(*userOpt);
+    }
 
     QStringList roles;
     for (const auto& r : resultDto.roles) {

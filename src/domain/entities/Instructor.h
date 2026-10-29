@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <cstdint>
 #include <optional>
 #include "../value_objects/Money.h"
@@ -13,13 +14,40 @@ enum class InstructorStatus {
     Inactive
 };
 
+enum class CompensationType {
+    Hourly,
+    PerSession,
+    MonthlySalary,
+    FixedContract
+};
+
+[[nodiscard]] inline std::string compensationTypeToString(CompensationType type) {
+    switch (type) {
+        case CompensationType::PerSession: return "per_session";
+        case CompensationType::MonthlySalary: return "monthly_salary";
+        case CompensationType::FixedContract: return "fixed_contract";
+        default: return "hourly";
+    }
+}
+
+[[nodiscard]] inline CompensationType compensationTypeFromString(std::string_view str) {
+    if (str == "per_session") return CompensationType::PerSession;
+    if (str == "monthly_salary" || str == "monthly_fixed") return CompensationType::MonthlySalary;
+    if (str == "fixed_contract") return CompensationType::FixedContract;
+    return CompensationType::Hourly;
+}
+
 struct Instructor {
     std::int64_t id{0};
-    std::optional<std::string> userId;  // user ID UUID if linked to a system user
     std::string fullName;
     std::string phone;
     std::string specialization;
-    Money hourlyRate{0};
+    CompensationType compensationType{CompensationType::Hourly};
+    Money baseRate{0};
+    Money hourlyRate{0}; // Preserved alongside baseRate
+    Money monthlySalary{0};
+    std::string contractStartDate;
+    std::string contractEndDate;
     std::string notes;
     InstructorStatus status{InstructorStatus::Active};
     std::string createdAtUtc;

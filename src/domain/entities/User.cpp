@@ -28,13 +28,17 @@ User::User(std::string id,
 
 bool User::isSuperAdmin() const noexcept {
     for (const auto& r : m_roles) {
-        if (r.code() == "SuperAdmin") return true;
+        if (r.code() == "Owner" || r.code() == "SuperAdmin") return true;
     }
     return false;
 }
 
+bool User::isOwner() const noexcept {
+    return isSuperAdmin();
+}
+
 bool User::hasPermission(std::string_view permissionCode) const noexcept {
-    // SuperAdmin has all permissions by definition
+    // Owner / SuperAdmin has all permissions by definition
     if (isSuperAdmin()) return true;
 
     for (const auto& r : m_roles) {
@@ -102,4 +106,3 @@ void User::resetPasswordByAdmin(std::string newPasswordHash, std::string current
 }
 
 } // namespace pixcode::domain
-

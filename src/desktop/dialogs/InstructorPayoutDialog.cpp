@@ -27,13 +27,15 @@ void InstructorPayoutDialog::setupUi() {
     mainLayout->setContentsMargins(24, 24, 24, 24);
 
     m_infoLabel = new QLabel(this);
-    m_infoLabel->setStyleSheet("background-color: #2E3A44; color: #FFFFFF; padding: 10px; border-radius: 6px; font-weight: bold;");
+    m_infoLabel->setStyleSheet("background-color: #001D39; color: #FFFFFF; padding: 12px; border-radius: 6px; font-weight: bold; font-size: 13px;");
 
     auto summaryRes = m_appContext->payrollUseCases()->getInstructorPayrollSummary(m_instructorId);
+    std::int64_t duePiastres = 0;
     if (summaryRes.isOk()) {
         const auto& s = summaryRes.value();
-        domain::Money due(s.outstandingDuesPiastres);
-        m_infoLabel->setText(QString(isRtl ? "المدرب: %1 | الرصيد المستحق له: %2" : "Instructor: %1 | Outstanding Due: %2")
+        duePiastres = s.outstandingDuesPiastres;
+        domain::Money due(duePiastres);
+        m_infoLabel->setText(QString(isRtl ? "المحاضر: %1 | الرصيد المعتمد المستحق للصرف: %2" : "Instructor: %1 | Approved Due: %2")
             .arg(QString::fromStdString(s.instructorName))
             .arg(QString::fromStdString(due.format())));
     }
@@ -43,13 +45,16 @@ void InstructorPayoutDialog::setupUi() {
     formLayout->setSpacing(10);
 
     m_amountSpin = new QDoubleSpinBox(this);
-    m_amountSpin->setRange(1.0, 1000000.0);
     m_amountSpin->setDecimals(2);
     m_amountSpin->setSuffix(isRtl ? " ج.م" : " EGP");
 
-    if (summaryRes.isOk() && summaryRes.value().outstandingDuesPiastres > 0) {
-        domain::Money due(summaryRes.value().outstandingDuesPiastres);
-        m_amountSpin->setValue(due.piasters() / 100.0);
+    if (duePiastres > 0) {
+        m_amountSpin->setRange(1.0, duePiastres / 100.0);
+        m_amountSpin->setValue(duePiastres / 100.0);
+    } else {
+        m_amountSpin->setRange(0.0, 0.0);
+        m_amountSpin->setValue(0.0);
+        m_amountSpin->setEnabled(false);
     }
 
     m_methodCombo = new QComboBox(this);
@@ -82,6 +87,10 @@ void InstructorPayoutDialog::setupUi() {
     btnLayout->addWidget(m_cancelBtn);
     btnLayout->addWidget(m_saveBtn);
     mainLayout->addLayout(btnLayout);
+
+    if (duePiastres <= 0) {
+        m_saveBtn->setEnabled(false);
+    }
 
     connect(m_cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
     connect(m_saveBtn, &QPushButton::clicked, this, &InstructorPayoutDialog::onSaveClicked);

@@ -225,4 +225,25 @@ int SqliteAttendanceRepository::countEligibleSessions(std::int64_t studentId) {
     return 0;
 }
 
+int SqliteAttendanceRepository::countTotalRecords() {
+    auto db = m_dbManager->getConnection();
+    QSqlQuery q(db);
+    q.prepare("SELECT COUNT(*) FROM session_attendance;");
+    if (q.exec() && q.next()) {
+        return q.value(0).toInt();
+    }
+    return 0;
+}
+
+int SqliteAttendanceRepository::countPresentRecords() {
+    auto db = m_dbManager->getConnection();
+    QSqlQuery q(db);
+    q.prepare("SELECT COUNT(*) FROM session_attendance WHERE status IN ('present', 'late');");
+    if (q.exec() && q.next()) {
+        return q.value(0).toInt();
+    }
+    return 0;
+}
+
 } // namespace pixcode::infrastructure
+

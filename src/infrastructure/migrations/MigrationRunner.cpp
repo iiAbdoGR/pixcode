@@ -49,6 +49,24 @@ std::vector<MigrationDefinition> MigrationRunner::getBuiltinMigrations() {
         .sql = std::string(V003_AttendanceAndPayrollSql)
     });
 
+    migrations.push_back(MigrationDefinition{
+        .version = 4,
+        .name = "V004__business_integrity_and_role_consolidation",
+        .sql = std::string(V004_BusinessIntegrityAndRoleConsolidationSql)
+    });
+
+    migrations.push_back(MigrationDefinition{
+        .version = 5,
+        .name = "V005__instructor_contracts_and_admin_approval",
+        .sql = std::string(V005_InstructorContractsAndAdminApprovalSql)
+    });
+
+    migrations.push_back(MigrationDefinition{
+        .version = 6,
+        .name = "V006__payroll_allocations_and_role_security",
+        .sql = std::string(V006_PayrollAllocationsAndRoleSecuritySql)
+    });
+
     return migrations;
 }
 
@@ -77,28 +95,58 @@ bool MigrationRunner::runMigrations(QString& outError) {
         const std::string calculatedChecksum = computeSha256(migration.sql);
 
         // Check if already applied
-        QSqlQuery checkQuery(db);
-        checkQuery.prepare("SELECT checksum FROM schema_migrations WHERE version = :version;");
-        checkQuery.bindValue(":version", migration.version);
+        {
+            QSqlQuery checkQuery(db);
+            checkQuery.prepare("SELECT checksum FROM schema_migrations WHERE version = :version;");
+            checkQuery.bindValue(":version", migration.version);
 
-        if (!checkQuery.exec()) {
-            outError = "Failed to query schema_migrations: " + checkQuery.lastError().text();
-            return false;
-        }
-
-        if (checkQuery.next()) {
-            const std::string recordedChecksum = checkQuery.value(0).toString().toStdString();
-            if (recordedChecksum != calculatedChecksum) {
-                outError = QString("Schema tampering detected in migration version %1! Checksum mismatch.")
-                    .arg(migration.version);
+            if (!checkQuery.exec()) {
+                outError = "Failed to query schema_migrations: " + checkQuery.lastError().text();
                 return false;
             }
-            // Already applied cleanly
-            continue;
+
+            if (checkQuery.next()) {
+                const std::string recordedChecksum = checkQuery.value(0).toString().toStdString();
+                if (recordedChecksum != calculatedChecksum) {
+                    outError = QString("Schema tampering detected in migration version %1! Checksum mismatch.")
+                        .arg(migration.version);
+                    return false;
+                }
+                // Already applied cleanly
+                continue;
+            }
+            checkQuery.finish();
+        }
+
+        // Perform online consistent backup prior to applying migration if on disk
+        if (!m_dbManager->databasePath().isEmpty() && m_dbManager->databasePath() != ":memory:") {
+            QString backupErr;
+            const QString backupPath = m_dbManager->databasePath() + QString(".pre_v%1_%2.bak")
+                .arg(migration.version)
+                .arg(QDateTime::currentSecsSinceEpoch());
+            if (!m_dbManager->createOnlineBackup(backupPath, backupErr)) {
+                outError = QString("Pre-migration backup before applying version %1 failed: %2")
+                    .arg(migration.version).arg(backupErr);
+                return false;
+            }
         }
 
         // Apply migration atomically
         try {
+            // Turn off foreign key enforcement outside the transaction so table rebuilds/drops succeed
+            {
+                QSqlQuery fkOff(db);
+                fkOff.exec("PRAGMA foreign_keys = OFF;");
+            }
+
+            struct FkGuard {
+                QSqlDatabase d;
+                ~FkGuard() {
+                    QSqlQuery fkOn(d);
+                    fkOn.exec("PRAGMA foreign_keys = ON;");
+                }
+            } fkGuard{db};
+
             SqliteTransaction tx(db, true);
 
             {
@@ -150,6 +198,17 @@ bool MigrationRunner::runMigrations(QString& outError) {
             }
 
             tx.commit();
+
+            // Validate that all foreign key constraints remain intact after migration
+            {
+                QSqlQuery fkCheck(db);
+                if (fkCheck.exec("PRAGMA foreign_key_check;") && fkCheck.next()) {
+                    outError = QString("Foreign key constraint violation after migration %1 in table %2")
+                        .arg(migration.version)
+                        .arg(fkCheck.value(0).toString());
+                    return false;
+                }
+            }
         } catch (const std::exception& e) {
             outError = QString("Exception during migration %1: %2").arg(migration.version).arg(e.what());
             return false;

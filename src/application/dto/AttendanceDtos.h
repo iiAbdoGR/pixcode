@@ -66,6 +66,7 @@ struct SessionSummaryDto {
     std::string scheduledEndTime;
     std::string status;           // "scheduled", "completed", "cancelled", "rescheduled"
     std::string approvalStatus;   // "pending", "approved", "rejected"
+    std::string settlementStatus; // "unpaid", "partially_paid", "fully_paid"
     int plannedDurationMinutes{60};
     int actualDurationMinutes{60};
     int payableDurationMinutes{60};

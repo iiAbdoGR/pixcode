@@ -46,4 +46,24 @@ struct InstructorPayout {
     }
 };
 
+struct InstructorPayoutAllocation {
+    std::int64_t id{0};
+    std::int64_t payoutId{0};
+    std::optional<std::int64_t> sessionId;
+    std::optional<std::int64_t> salaryPeriodId;
+    Money allocatedAmount{0};
+    std::string createdAtUtc;
+};
+
+struct InstructorSalaryPeriod {
+    std::int64_t id{0};
+    std::int64_t instructorId{0};
+    std::string periodMonthUtc; // YYYY-MM
+    Money salaryAmount{0};
+    std::string status{"pending"}; // "pending", "approved", "paid"
+    std::optional<std::string> approvedAtUtc;
+    std::optional<std::string> approvedByUserId;
+    std::string createdAtUtc;
+};
+
 } // namespace pixcode::domain

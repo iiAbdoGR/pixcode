@@ -2,10 +2,9 @@
 
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QCheckBox>
-#include <QtWidgets/QDoubleSpinBox>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QGroupBox>
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,7 +25,6 @@ signals:
 
 private slots:
     void onSaveClicked();
-    void onRoleToggled();
 
 private:
     void setupUi();
@@ -37,19 +35,8 @@ private:
 
     QLineEdit* m_usernameEdit;
     QLineEdit* m_passwordEdit;
-    QLineEdit* m_fullNameEdit;
-    QLineEdit* m_phoneEdit;
-
-    QCheckBox* m_roleSuperAdmin;
-    QCheckBox* m_roleAdmin;
-    QCheckBox* m_roleSecretary;
-    QCheckBox* m_roleAccountant;
-    QCheckBox* m_roleInstructor;
+    QComboBox* m_roleCombo;
     QCheckBox* m_activeCheck;
-
-    QGroupBox* m_instructorBox;
-    QLineEdit* m_specEdit;
-    QDoubleSpinBox* m_hourlyRateSpin;
 
     QPushButton* m_saveBtn;
     QPushButton* m_cancelBtn;

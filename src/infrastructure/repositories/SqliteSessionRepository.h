@@ -17,6 +17,7 @@ public:
     bool remove(std::int64_t id) override;
 
     [[nodiscard]] std::int64_t sumApprovedEarnings(std::int64_t instructorId, const std::string& fromDate = "", const std::string& toDate = "") override;
+    [[nodiscard]] std::int64_t sumAllApprovedEarnings() override;
     [[nodiscard]] int sumApprovedMinutes(std::int64_t instructorId, const std::string& fromDate = "", const std::string& toDate = "") override;
     [[nodiscard]] int countLessonsTaught(std::int64_t instructorId, const std::string& fromDate = "", const std::string& toDate = "") override;
 
@@ -27,3 +28,4 @@ private:
 };
 
 } // namespace pixcode::infrastructure
+

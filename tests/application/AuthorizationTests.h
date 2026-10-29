@@ -7,5 +7,8 @@ class AuthorizationTests : public QObject {
 private slots:
     void testSuperAdminInherentPermissions();
     void testScopedRolePermissions();
+    void testOwnerRoleHasAllPermissions();
+    void testStaffProtectionForLastOwner();
+    void testAdminRoleRestrictedFromFinanceAndApproval();
 };
 

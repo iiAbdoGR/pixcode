@@ -64,37 +64,25 @@ Result<StaffDto> StaffManagementUseCases::createStaff(const CreateStaffCommand& 
 
     m_userRepo->save(user);
 
-    // Assign roles
-    bool isInstructor = false;
-    for (const auto& roleCode : cmd.roleCodes) {
-        if (roleCode == "instructor") isInstructor = true;
+    // Assign roles strictly: only Owner or Admin
+    for (const auto& rawRole : cmd.roleCodes) {
+        std::string roleCode = "Admin";
+        if (rawRole == "Owner" || rawRole == "role_owner" || rawRole == "SuperAdmin" || rawRole == "role_superadmin") {
+            roleCode = "Owner";
+        }
         auto roleOpt = m_roleRepo->findByCode(roleCode);
+        if (!roleOpt.has_value() && roleCode == "Owner") {
+            roleOpt = m_roleRepo->findByCode("SuperAdmin");
+        }
         if (roleOpt.has_value()) {
             m_userRepo->assignRole(newId, roleOpt->id());
             user.addRole(*roleOpt);
-        }
-    }
-
-    // Link or create instructor profile
-    if (isInstructor) {
-        domain::Instructor inst;
-        inst.userId = newId;
-        inst.fullName = cmd.fullName.empty() ? cmd.username : cmd.fullName;
-        inst.phone = cmd.phone;
-        inst.specialization = cmd.specialization;
-        inst.hourlyRate = domain::Money(cmd.hourlyRatePiastres);
-        m_instructorRepo->save(inst);
-    } else if (cmd.linkedInstructorId.has_value() && *cmd.linkedInstructorId > 0) {
-        auto instOpt = m_instructorRepo->findById(*cmd.linkedInstructorId);
-        if (instOpt.has_value()) {
-            auto inst = *instOpt;
-            inst.userId = newId;
-            m_instructorRepo->save(inst);
+            break; // Single primary role per user
         }
     }
 
     std::string actorId = m_authContext->currentUser().has_value() ? m_authContext->currentUser()->id() : "system";
-    m_auditService->record(actorId, "USER_CREATED", "User", newId, "Created employee account: " + cmd.username);
+    m_auditService->record(actorId, "USER_CREATED", "User", newId, "Created staff account: " + cmd.username);
 
     return Result<StaffDto>::ok(buildStaffDto(user));
 }
@@ -115,34 +103,36 @@ Result<StaffDto> StaffManagementUseCases::updateStaff(const UpdateStaffCommand& 
     user.setActive(cmd.isActive, now, isLastSuper);
     user.setPreferredLanguage(cmd.preferredLanguage, now);
 
-    // Update roles
+    // Update roles strictly: only Owner or Admin
+    bool willBeOwner = false;
+    for (const auto& rawRole : cmd.roleCodes) {
+        if (rawRole == "Owner" || rawRole == "role_owner" || rawRole == "SuperAdmin" || rawRole == "role_superadmin") {
+            willBeOwner = true;
+        }
+    }
+    if (user.isOwner() && isLastSuper && !willBeOwner) {
+        return Result<StaffDto>::error(
+            domain::DomainError(domain::ErrorCode::CannotDeleteLastSuperAdmin,
+                                "Cannot change role of the last remaining Owner account"));
+    }
+
     user.clearRoles();
-    bool isInstructor = false;
-    for (const auto& roleCode : cmd.roleCodes) {
-        if (roleCode == "instructor") isInstructor = true;
+    for (const auto& rawRole : cmd.roleCodes) {
+        std::string roleCode = "Admin";
+        if (rawRole == "Owner" || rawRole == "role_owner" || rawRole == "SuperAdmin" || rawRole == "role_superadmin") {
+            roleCode = "Owner";
+        }
         auto roleOpt = m_roleRepo->findByCode(roleCode);
+        if (!roleOpt.has_value() && roleCode == "Owner") {
+            roleOpt = m_roleRepo->findByCode("SuperAdmin");
+        }
         if (roleOpt.has_value()) {
             user.addRole(*roleOpt);
+            break;
         }
     }
 
     m_userRepo->save(user);
-
-    // Sync instructor profile if instructor role is present
-    auto instOpt = m_instructorRepo->findByUserId(cmd.userId);
-    if (isInstructor) {
-        domain::Instructor inst;
-        if (instOpt.has_value()) {
-            inst = *instOpt;
-        } else {
-            inst.userId = cmd.userId;
-        }
-        if (!cmd.fullName.empty()) inst.fullName = cmd.fullName;
-        if (!cmd.phone.empty()) inst.phone = cmd.phone;
-        inst.specialization = cmd.specialization;
-        inst.hourlyRate = domain::Money(cmd.hourlyRatePiastres);
-        m_instructorRepo->save(inst);
-    }
 
     std::string actorId = m_authContext->currentUser().has_value() ? m_authContext->currentUser()->id() : "system";
     m_auditService->record(actorId, "USER_UPDATED", "User", user.id(), "Updated staff account: " + user.username());
@@ -216,12 +206,6 @@ StaffDto StaffManagementUseCases::buildStaffDto(const domain::User& user) {
 
     for (const auto& r : user.roles()) {
         dto.roleCodes.push_back(r.code());
-    }
-
-    auto instOpt = m_instructorRepo->findByUserId(user.id());
-    if (instOpt.has_value()) {
-        dto.linkedInstructorId = instOpt->id;
-        dto.linkedInstructorName = instOpt->fullName;
     }
 
     return dto;

@@ -31,6 +31,7 @@ void NavigationSidebar::setupUi() {
     m_buttons.push_back({NavDestination::Registration, createNavButton(NavDestination::Registration, "nav.registration")});
     m_buttons.push_back({NavDestination::Students, createNavButton(NavDestination::Students, "nav.students")});
     m_buttons.push_back({NavDestination::Courses, createNavButton(NavDestination::Courses, "nav.courses")});
+    m_buttons.push_back({NavDestination::Instructors, createNavButton(NavDestination::Instructors, "nav.instructors")});
     m_buttons.push_back({NavDestination::Attendance, createNavButton(NavDestination::Attendance, "nav.attendance")});
     m_buttons.push_back({NavDestination::Finance, createNavButton(NavDestination::Finance, "nav.finance")});
     m_buttons.push_back({NavDestination::Payroll, createNavButton(NavDestination::Payroll, "nav.payroll")});
@@ -82,12 +83,15 @@ void NavigationSidebar::refreshRoleNavigation() {
             case NavDestination::Courses:
                 visible = isSuper || user.hasPermission("courses.read") || user.hasPermission("groups.read.all") || user.hasPermission("groups.read.assigned");
                 break;
+            case NavDestination::Instructors:
+                visible = isSuper || user.hasPermission("instructors.manage") || user.hasPermission("courses.read");
+                break;
             case NavDestination::Attendance:
                 visible = isSuper || user.hasPermission("attendance.student.mark") || user.hasPermission("attendance.instructor.confirm");
                 break;
             case NavDestination::Finance:
-                // Full finance or limited payment collection
-                visible = isSuper || user.hasPermission("finance.payments.read") || user.hasPermission("finance.payments.collect");
+                // General Finance is strictly restricted to Owner
+                visible = isSuper || user.isOwner();
                 break;
             case NavDestination::Payroll:
                 visible = isSuper || user.hasPermission("payroll.read") || user.hasPermission("payroll.pay_instructor");

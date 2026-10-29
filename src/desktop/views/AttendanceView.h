@@ -24,6 +24,7 @@ private slots:
     void onGroupChanged(int index);
     void onSessionChanged(int index);
     void onAddSessionClicked();
+    void onEditSessionClicked();
     void onMarkAllPresentClicked();
     void onSaveAttendanceClicked();
 
@@ -41,6 +42,7 @@ private:
     QComboBox* m_groupCombo;
     QComboBox* m_sessionCombo;
     QPushButton* m_addSessionBtn;
+    QPushButton* m_editSessionBtn;
     QPushButton* m_markAllPresentBtn;
     QPushButton* m_saveAttendanceBtn;
     QLabel* m_statsLabel;

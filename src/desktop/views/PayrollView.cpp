@@ -7,6 +7,7 @@
 #include <QtWidgets/QFrame>
 #include "../localization/LocalizationManager.h"
 #include "../dialogs/InstructorPayoutDialog.h"
+#include "../styles/Theme.h"
 
 namespace pixcode::desktop {
 
@@ -28,7 +29,7 @@ static QFrame* createCard(const QString& title, QLabel*& valueLabel, const QStri
     layout->setContentsMargins(12, 12, 12, 12);
 
     auto* lblTitle = new QLabel(title);
-    lblTitle->setStyleSheet("color: #627D98; font-size: 12px; font-weight: 600;");
+    lblTitle->setStyleSheet(QString("color: %1; font-size: 12px; font-weight: 600;").arg(Theme::TextSecondary));
 
     valueLabel = new QLabel("0");
     valueLabel->setStyleSheet(QString("color: %1; font-size: 20px; font-weight: bold;").arg(color));
@@ -83,28 +84,40 @@ void PayrollView::setupUi() {
     auto* cardsLayout = new QHBoxLayout();
     cardsLayout->setSpacing(12);
 
-    cardsLayout->addWidget(createCard(trText("payroll.card.sessions"), m_sessionsCountLabel, "#2E3A44"));
-    cardsLayout->addWidget(createCard(trText("payroll.card.hours"), m_hoursLabel, "#2E3A44"));
-    cardsLayout->addWidget(createCard(trText("payroll.card.earned"), m_earnedLabel, "#2E7D32"));
-    cardsLayout->addWidget(createCard(trText("payroll.card.paid"), m_paidLabel, "#1976D2"));
-    cardsLayout->addWidget(createCard(trText("payroll.card.due"), m_dueLabel, "#D32F2F"));
+    cardsLayout->addWidget(createCard(trText("payroll.card.sessions"), m_sessionsCountLabel, Theme::Primary));
+    cardsLayout->addWidget(createCard(trText("payroll.card.hours"), m_hoursLabel, Theme::Secondary));
+    cardsLayout->addWidget(createCard(trText("payroll.card.earned"), m_earnedLabel, Theme::Success));
+    cardsLayout->addWidget(createCard(trText("payroll.card.paid"), m_paidLabel, Theme::Slate));
+    cardsLayout->addWidget(createCard(trText("payroll.card.due"), m_dueLabel, Theme::Danger));
+    cardsLayout->addWidget(createCard("حالة السداد", m_settlementStatusLabel, Theme::Primary));
 
     mainLayout->addLayout(cardsLayout);
 
-    // 3. Tab Widget: Sessions & Payouts
+    // 3. Tab Widget: Sessions, Settled Archive & Payouts
     m_tabWidget = new QTabWidget(this);
 
-    // Tab 1: Sessions
+    // Tab 1: Active & Payable Sessions
     m_sessionsTable = new QTableWidget(this);
-    m_sessionsTable->setColumnCount(7);
+    m_sessionsTable->setColumnCount(8);
     m_sessionsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_sessionsTable->setSelectionMode(QAbstractItemView::SingleSelection);
     m_sessionsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_sessionsTable->horizontalHeader()->setStretchLastSection(true);
     m_sessionsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    m_tabWidget->addTab(m_sessionsTable, trText("payroll.tab.sessions"));
+    connect(m_sessionsTable, &QTableWidget::itemSelectionChanged, this, &PayrollView::onSessionSelectionChanged);
+    m_tabWidget->addTab(m_sessionsTable, "الحصص الجارية والمستحقة");
 
-    // Tab 2: Payouts
+    // Tab 2: Settled / Archived Sessions
+    m_archivedSessionsTable = new QTableWidget(this);
+    m_archivedSessionsTable->setColumnCount(8);
+    m_archivedSessionsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_archivedSessionsTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_archivedSessionsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_archivedSessionsTable->horizontalHeader()->setStretchLastSection(true);
+    m_archivedSessionsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    m_tabWidget->addTab(m_archivedSessionsTable, "أرشيف الحصص المسددة");
+
+    // Tab 3: Payouts
     m_payoutsTable = new QTableWidget(this);
     m_payoutsTable->setColumnCount(6);
     m_payoutsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -125,8 +138,9 @@ void PayrollView::updateTranslations() {
     m_approveSessionBtn->setText(trText("payroll.approve_session"));
     m_issuePayoutBtn->setText(trText("payroll.record_payout"));
 
-    m_tabWidget->setTabText(0, trText("payroll.tab.sessions"));
-    m_tabWidget->setTabText(1, trText("payroll.tab.payouts"));
+    m_tabWidget->setTabText(0, "الحصص الجارية والمستحقة");
+    m_tabWidget->setTabText(1, "أرشيف الحصص المسددة");
+    m_tabWidget->setTabText(2, trText("payroll.tab.payouts"));
 
     QStringList sessionHeaders = {
         trText("payroll.col.session_date"),
@@ -134,17 +148,19 @@ void PayrollView::updateTranslations() {
         trText("payroll.col.duration"),
         trText("payroll.col.session_status"),
         trText("payroll.col.approval"),
+        "حالة الصرف",
         trText("payroll.col.earned"),
         trText("common.notes")
     };
     m_sessionsTable->setHorizontalHeaderLabels(sessionHeaders);
+    m_archivedSessionsTable->setHorizontalHeaderLabels(sessionHeaders);
 
     QStringList payoutHeaders = {
         trText("payroll.col.payout_receipt"),
         trText("payroll.col.payout_amount"),
         trText("payroll.col.payout_method"),
         trText("payroll.col.payout_date"),
-        "Reference",
+        "المرجع",
         trText("common.notes")
     };
     m_payoutsTable->setHorizontalHeaderLabels(payoutHeaders);
@@ -196,7 +212,20 @@ void PayrollView::loadInstructorData(std::int64_t instructorId) {
 
     const auto& s = summaryRes.value();
 
-    m_rateLabel->setText(trText("payroll.hourly_rate").arg(QString::number(s.currentHourlyRatePiastres / 100.0, 'f', 2)));
+    bool isOwner = m_appContext->authContext()->currentUser().has_value() && m_appContext->authContext()->currentUser()->isOwner();
+    m_rateLabel->setVisible(isOwner);
+    m_updateRateBtn->setVisible(isOwner);
+    m_approveSessionBtn->setVisible(isOwner);
+
+    if (s.compensationType == "monthly_salary") {
+        m_rateLabel->setText(trText("payroll.summary.monthly_salary").arg(QString::number(s.monthlySalaryPiastres / 100.0, 'f', 2)));
+    } else if (s.compensationType == "per_session") {
+        m_rateLabel->setText(trText("payroll.summary.per_session").arg(QString::number(s.currentHourlyRatePiastres / 100.0, 'f', 2)));
+    } else if (s.compensationType == "fixed_contract") {
+        m_rateLabel->setText(trText("payroll.summary.fixed_contract").arg(QString::number(s.currentHourlyRatePiastres / 100.0, 'f', 2)));
+    } else {
+        m_rateLabel->setText(trText("payroll.summary.hourly").arg(QString::number(s.currentHourlyRatePiastres / 100.0, 'f', 2)));
+    }
     m_sessionsCountLabel->setText(QString::number(s.totalCompletedSessions));
     m_hoursLabel->setText(QString::number(s.totalApprovedPayableMinutes / 60.0, 'f', 1));
 
@@ -209,38 +238,68 @@ void PayrollView::loadInstructorData(std::int64_t instructorId) {
     domain::Money due(s.outstandingDuesPiastres);
     m_dueLabel->setText(QString::fromStdString(due.format()));
 
-    // Load sessions table
+    if (s.settlementStatus == "fully_paid") {
+        m_settlementStatusLabel->setText("مسدد بالكامل");
+        m_settlementStatusLabel->setStyleSheet("color: #2E7D32; font-size: 16px; font-weight: bold;");
+    } else if (s.settlementStatus == "partially_paid") {
+        m_settlementStatusLabel->setText("مسدد جزئياً");
+        m_settlementStatusLabel->setStyleSheet("color: #0A4174; font-size: 16px; font-weight: bold;");
+    } else {
+        m_settlementStatusLabel->setText(s.grossEarnedPiastres > 0 ? "بانتظار الصرف" : "لا توجد مستحقات");
+        m_settlementStatusLabel->setStyleSheet("color: #ED6C02; font-size: 16px; font-weight: bold;");
+    }
+
+    // Load sessions tables (Active / Settled)
     m_sessionsTable->setRowCount(0);
+    m_archivedSessionsTable->setRowCount(0);
     application::SessionFilter filter;
     filter.instructorId = instructorId;
     auto sessions = m_appContext->sessionRepository()->findAll(filter);
     for (const auto& sess : sessions) {
-        int r = m_sessionsTable->rowCount();
-        m_sessionsTable->insertRow(r);
+        bool isSettled = (sess.settlementStatus == domain::SessionSettlementStatus::FullyPaid);
+        QTableWidget* targetTable = isSettled ? m_archivedSessionsTable : m_sessionsTable;
+
+        int r = targetTable->rowCount();
+        targetTable->insertRow(r);
 
         auto* dateItem = new QTableWidgetItem(QString::fromStdString(sess.sessionDate));
         dateItem->setData(Qt::UserRole, static_cast<qint64>(sess.id));
-        m_sessionsTable->setItem(r, 0, dateItem);
+        targetTable->setItem(r, 0, dateItem);
 
         auto groupOpt = m_appContext->groupRepository()->findById(sess.groupId);
         QString groupName = groupOpt ? QString::fromStdString(groupOpt->name) : QString::number(sess.groupId);
-        m_sessionsTable->setItem(r, 1, new QTableWidgetItem(groupName));
+        targetTable->setItem(r, 1, new QTableWidgetItem(groupName));
 
-        m_sessionsTable->setItem(r, 2, new QTableWidgetItem(QString("%1m").arg(sess.payableDurationMinutes)));
-        m_sessionsTable->setItem(r, 3, new QTableWidgetItem(QString::fromStdString(sess.statusToString())));
+        targetTable->setItem(r, 2, new QTableWidgetItem(QString("%1m").arg(sess.payableDurationMinutes)));
+        targetTable->setItem(r, 3, new QTableWidgetItem(QString::fromStdString(sess.statusToString())));
 
-        auto* appItem = new QTableWidgetItem(QString::fromStdString(sess.approvalStatusToString()));
+        auto* appItem = new QTableWidgetItem(sess.approvalStatus == domain::SessionApprovalStatus::Approved ? "معتمدة" : "قيد الاعتماد");
+        appItem->setData(Qt::UserRole, QString::fromStdString(sess.approvalStatusToString()));
         if (sess.approvalStatus == domain::SessionApprovalStatus::Approved) {
             appItem->setForeground(QBrush(QColor("#2E7D32")));
         } else {
             appItem->setForeground(QBrush(QColor("#ED6C02")));
         }
-        m_sessionsTable->setItem(r, 4, appItem);
+        targetTable->setItem(r, 4, appItem);
+
+        QString settlText = "غير مسددة";
+        QColor settlColor("#ED6C02");
+        if (sess.settlementStatus == domain::SessionSettlementStatus::FullyPaid) {
+            settlText = "مسددة بالكامل";
+            settlColor = QColor("#2E7D32");
+        } else if (sess.settlementStatus == domain::SessionSettlementStatus::PartiallyPaid) {
+            settlText = "مسددة جزئياً";
+            settlColor = QColor("#0A4174");
+        }
+        auto* settlItem = new QTableWidgetItem(settlText);
+        settlItem->setForeground(QBrush(settlColor));
+        targetTable->setItem(r, 5, settlItem);
 
         domain::Money earnedMoney = sess.earnedAmount;
-        m_sessionsTable->setItem(r, 5, new QTableWidgetItem(QString::fromStdString(earnedMoney.format())));
-        m_sessionsTable->setItem(r, 6, new QTableWidgetItem(QString::fromStdString(sess.notes)));
+        targetTable->setItem(r, 6, new QTableWidgetItem(QString::fromStdString(earnedMoney.format())));
+        targetTable->setItem(r, 7, new QTableWidgetItem(QString::fromStdString(sess.notes)));
     }
+    onSessionSelectionChanged();
 
     // Load payouts table
     m_payoutsTable->setRowCount(0);
@@ -269,20 +328,31 @@ void PayrollView::onUpdateRateClicked() {
     auto instOpt = m_appContext->instructorRepository()->findById(m_currentInstructorId);
     if (!instOpt.has_value()) return;
 
+    QString promptTitle = isRtl ? "تعديل الاستحقاق المالي" : "Update Compensation";
+    QString promptLabel = isRtl ? "أدخل القيمة الجديدة بالجنيه (EGP):" : "Enter new value (EGP):";
+    double currentVal = (instOpt->compensationType == domain::CompensationType::MonthlySalary)
+        ? (instOpt->monthlySalary.piasters() / 100.0)
+        : (instOpt->baseRate.piasters() > 0 ? instOpt->baseRate.piasters() / 100.0 : instOpt->hourlyRate.piasters() / 100.0);
+
     bool ok = false;
     double newRate = QInputDialog::getDouble(
         this,
-        isRtl ? "تعديل أجر الساعة" : "Update Hourly Rate",
-        isRtl ? "أدخل أجر الساعة الجديد بالجنيه (EGP):" : "Enter new hourly rate (EGP):",
-        instOpt->hourlyRate.piasters() / 100.0,
-        0.0, 100000.0, 2, &ok
+        promptTitle,
+        promptLabel,
+        currentVal,
+        0.0, 1000000.0, 2, &ok
     );
 
     if (ok) {
         std::int64_t piastres = static_cast<std::int64_t>(newRate * 100.0 + 0.5);
-        if (!m_appContext->instructorRepository()->updateHourlyRate(m_currentInstructorId, piastres, "Rate adjusted via management portal")) {
-            QMessageBox::critical(this, isRtl ? "خطأ" : "Error", isRtl ? "فشل تعديل الأجر." : "Failed to update rate.");
-            return;
+        if (instOpt->compensationType == domain::CompensationType::MonthlySalary) {
+            instOpt->monthlySalary = domain::Money(piastres);
+            m_appContext->instructorRepository()->save(*instOpt);
+        } else {
+            instOpt->baseRate = domain::Money(piastres);
+            instOpt->hourlyRate = domain::Money(piastres);
+            m_appContext->instructorRepository()->save(*instOpt);
+            m_appContext->instructorRepository()->updateHourlyRate(m_currentInstructorId, piastres, "Rate adjusted via management portal");
         }
 
         loadInstructorData(m_currentInstructorId);
@@ -297,12 +367,35 @@ void PayrollView::onIssuePayoutClicked() {
     }
 }
 
+void PayrollView::onSessionSelectionChanged() {
+    int row = m_sessionsTable->currentRow();
+    if (row < 0) {
+        m_approveSessionBtn->setEnabled(false);
+        return;
+    }
+    QString appSt = m_sessionsTable->item(row, 4) ? m_sessionsTable->item(row, 4)->data(Qt::UserRole).toString() : "";
+    if (appSt == "approved") {
+        m_approveSessionBtn->setEnabled(false);
+        m_approveSessionBtn->setToolTip("هذه الحصة معتمدة بالفعل ولا يمكن اعتمادها مرة ثانية.");
+    } else {
+        m_approveSessionBtn->setEnabled(true);
+        m_approveSessionBtn->setToolTip("");
+    }
+}
+
 void PayrollView::onApproveSessionClicked() {
     bool isRtl = LocalizationManager::instance().isRtl();
     int row = m_sessionsTable->currentRow();
     if (row < 0) {
         QMessageBox::information(this, isRtl ? "تنبيه" : "Notice",
             isRtl ? "يرجى اختيار حصة من الجدول أولاً لاعتمادها." : "Please select a session from the table to approve.");
+        return;
+    }
+
+    QString currentAppSt = m_sessionsTable->item(row, 4) ? m_sessionsTable->item(row, 4)->data(Qt::UserRole).toString() : "";
+    if (currentAppSt == "approved") {
+        QMessageBox::warning(this, isRtl ? "تنبيه" : "Notice",
+            isRtl ? "هذه الحصة معتمدة بالفعل ولا يمكن اعتمادها مرة ثانية." : "This session is already approved and cannot be approved twice.");
         return;
     }
 
@@ -317,16 +410,20 @@ void PayrollView::onApproveSessionClicked() {
         cmd.approvedByUserId = m_appContext->authContext()->currentUser()->id();
     }
 
-    auto res = m_appContext->payrollUseCases()->approveSession(cmd);
-    if (!res.isOk()) {
-        QMessageBox::critical(this, isRtl ? "خطأ" : "Error", QString::fromStdString(res.error().message()));
-        return;
+    try {
+        auto res = m_appContext->payrollUseCases()->approveSession(cmd);
+        if (!res.isOk()) {
+            QMessageBox::critical(this, isRtl ? "خطأ" : "Error", QString::fromStdString(res.error().message()));
+            return;
+        }
+
+        QMessageBox::information(this, isRtl ? "تم الاعتماد" : "Success",
+            isRtl ? "تم اعتماد الحصة واحتساب الأجر بنجاح." : "Session approved and earnings calculated successfully.");
+
+        loadInstructorData(m_currentInstructorId);
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, isRtl ? "خطأ" : "Error", QString::fromStdString(e.what()));
     }
-
-    QMessageBox::information(this, isRtl ? "تم الاعتماد" : "Success",
-        isRtl ? "تم اعتماد الحصة واحتساب الأجر بنجاح." : "Session approved and earnings calculated successfully.");
-
-    loadInstructorData(m_currentInstructorId);
 }
 
 } // namespace pixcode::desktop

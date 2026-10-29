@@ -23,6 +23,8 @@ signals:
 private slots:
     void onNewEnrollmentClicked();
     void onRecordPaymentClicked();
+    void onCancelSubscriptionClicked();
+    void onRestoreSubscriptionClicked();
     void onEditClicked();
     void onToggleArchiveClicked();
     void onRefresh();
@@ -47,6 +49,8 @@ private:
     QTableWidget* m_attendanceTable;
     QPushButton* m_newEnrollmentBtn;
     QPushButton* m_recordPaymentBtn;
+    QPushButton* m_cancelEnrollmentBtn;
+    QPushButton* m_restoreEnrollmentBtn;
     QPushButton* m_editBtn;
     QPushButton* m_toggleArchiveBtn;
     QPushButton* m_closeBtn;

@@ -20,6 +20,8 @@ public:
 
     [[nodiscard]] int countStudentStatus(std::int64_t studentId, domain::AttendanceStatus status) override;
     [[nodiscard]] int countEligibleSessions(std::int64_t studentId) override;
+    [[nodiscard]] int countTotalRecords() override;
+    [[nodiscard]] int countPresentRecords() override;
 
 private:
     [[nodiscard]] domain::SessionAttendance mapRowToAttendance(const class QSqlQuery& query);

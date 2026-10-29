@@ -4,6 +4,7 @@
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QFrame>
+#include "../styles/Theme.h"
 #include "../localization/LocalizationManager.h"
 #include "../dialogs/LoginDialog.h"
 #include "../dialogs/ChangePasswordDialog.h"
@@ -23,6 +24,11 @@ MainWindow::MainWindow(std::shared_ptr<ApplicationContext> appContext, QWidget* 
 
     connect(&LocalizationManager::instance(), &LocalizationManager::languageChanged,
             this, &MainWindow::updateTranslations);
+
+    if (m_appContext->authContext()->currentUser().has_value()) {
+        m_sidebar->refreshRoleNavigation();
+        m_dashboardView->refresh();
+    }
 }
 
 void MainWindow::setupUi() {
@@ -37,7 +43,8 @@ void MainWindow::setupUi() {
     // 1. Top Header
     auto* headerFrame = new QFrame(this);
     headerFrame->setFixedHeight(64);
-    headerFrame->setStyleSheet("background-color: #2E3A44; border-bottom: 2px solid #CBD2D9;");
+    headerFrame->setStyleSheet(QString("background-color: %1; border-bottom: 2px solid %2;")
+        .arg(Theme::BrandNavy).arg(Theme::Border));
 
     auto* headerLayout = new QHBoxLayout(headerFrame);
     headerLayout->setContentsMargins(24, 0, 24, 0);
@@ -59,6 +66,7 @@ void MainWindow::setupUi() {
     m_langToggleBtn = new QPushButton(headerFrame);
     m_langToggleBtn->setObjectName("secondaryButton");
     connect(m_langToggleBtn, &QPushButton::clicked, this, &MainWindow::onLanguageToggleClicked);
+    m_langToggleBtn->setVisible(false);
 
     m_logoutBtn = new QPushButton(headerFrame);
     m_logoutBtn->setObjectName("dangerButton");
@@ -150,6 +158,12 @@ void MainWindow::onDestinationChanged(NavDestination dest) {
             m_stackedWidget->setCurrentWidget(m_studentsView);
             break;
         case NavDestination::Courses:
+            m_coursesView->selectCoursesTab();
+            m_coursesView->refresh();
+            m_stackedWidget->setCurrentWidget(m_coursesView);
+            break;
+        case NavDestination::Instructors:
+            m_coursesView->selectInstructorsTab();
             m_coursesView->refresh();
             m_stackedWidget->setCurrentWidget(m_coursesView);
             break;

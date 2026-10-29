@@ -32,6 +32,7 @@ void LoginDialog::setupUi() {
     m_langButton = new QPushButton(this);
     m_langButton->setObjectName("secondaryButton");
     m_langButton->setFixedHeight(30);
+    m_langButton->setVisible(false);
     connect(m_langButton, &QPushButton::clicked, this, &LoginDialog::onToggleLanguageClicked);
 
     topRow->addWidget(m_brandLabel);

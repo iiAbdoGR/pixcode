@@ -86,3 +86,4 @@ CREATE TABLE IF NOT EXISTS instructor_payouts (
 
 CREATE INDEX IF NOT EXISTS idx_payouts_inst ON instructor_payouts(instructor_id);
 CREATE INDEX IF NOT EXISTS idx_payouts_rcp  ON instructor_payouts(receipt_number);
+

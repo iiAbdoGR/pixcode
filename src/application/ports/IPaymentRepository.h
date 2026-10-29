@@ -17,7 +17,7 @@ public:
     virtual domain::Payment save(const domain::Payment& payment) = 0;
     [[nodiscard]] virtual std::string nextReceiptNumber() = 0;
     [[nodiscard]] virtual std::int64_t totalPaid(std::int64_t enrollmentId) = 0;
+    [[nodiscard]] virtual std::int64_t totalAllPayments() = 0;
 };
 
 } // namespace pixcode::application
-

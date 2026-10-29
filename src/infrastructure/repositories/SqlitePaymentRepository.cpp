@@ -128,5 +128,14 @@ std::int64_t SqlitePaymentRepository::totalPaid(std::int64_t enrollmentId) {
     return 0;
 }
 
-} // namespace pixcode::infrastructure
+std::int64_t SqlitePaymentRepository::totalAllPayments() {
+    auto db = m_dbManager->getConnection();
+    QSqlQuery q(db);
+    q.prepare("SELECT COALESCE(SUM(amount_piastres), 0) FROM payments;");
+    if (q.exec() && q.next()) {
+        return q.value(0).toLongLong();
+    }
+    return 0;
+}
 
+} // namespace pixcode::infrastructure

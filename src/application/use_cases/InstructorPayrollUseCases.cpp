@@ -1,16 +1,20 @@
 #include "InstructorPayrollUseCases.h"
+#include <sstream>
+#include <iomanip>
 
 namespace pixcode::application {
 
-static domain::SessionStatus parseSessionStatus(const std::string& s) {
-    if (s == "completed") return domain::SessionStatus::Completed;
-    if (s == "cancelled") return domain::SessionStatus::Cancelled;
-    if (s == "rescheduled") return domain::SessionStatus::Rescheduled;
+namespace {
+
+domain::SessionStatus parseSessionStatus(const std::string& str) {
+    if (str == "completed") return domain::SessionStatus::Completed;
+    if (str == "cancelled") return domain::SessionStatus::Cancelled;
+    if (str == "rescheduled") return domain::SessionStatus::Rescheduled;
     return domain::SessionStatus::Scheduled;
 }
 
-static std::string formatSessionStatus(domain::SessionStatus s) {
-    switch (s) {
+std::string formatSessionStatus(domain::SessionStatus st) {
+    switch (st) {
         case domain::SessionStatus::Completed: return "completed";
         case domain::SessionStatus::Cancelled: return "cancelled";
         case domain::SessionStatus::Rescheduled: return "rescheduled";
@@ -18,13 +22,15 @@ static std::string formatSessionStatus(domain::SessionStatus s) {
     }
 }
 
-static std::string formatApprovalStatus(domain::SessionApprovalStatus s) {
-    switch (s) {
+std::string formatApprovalStatus(domain::SessionApprovalStatus st) {
+    switch (st) {
         case domain::SessionApprovalStatus::Approved: return "approved";
         case domain::SessionApprovalStatus::Rejected: return "rejected";
         default: return "pending";
     }
 }
+
+} // namespace
 
 InstructorPayrollUseCases::InstructorPayrollUseCases(
     std::shared_ptr<ISessionRepository> sessionRepo,
@@ -45,43 +51,57 @@ InstructorPayrollUseCases::InstructorPayrollUseCases(
       m_auditService(std::move(auditService)) {}
 
 Result<SessionSummaryDto> InstructorPayrollUseCases::createSession(const CreateSessionCommand& cmd) {
-    m_authContext->enforcePermission("session.create");
+    m_authContext->enforcePermission("groups.manage");
 
-    auto groupOpt = m_groupRepo->findById(cmd.groupId);
-    if (!groupOpt.has_value()) {
+    if (cmd.groupId <= 0) {
         return Result<SessionSummaryDto>::error(
-            domain::DomainError(domain::ErrorCode::ValidationFailed, "Group not found"));
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "Group ID is required"));
+    }
+    if (cmd.sessionDate.empty()) {
+        return Result<SessionSummaryDto>::error(
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "Session date is required"));
+    }
+    if (!cmd.scheduledStartTime.empty() && !cmd.scheduledEndTime.empty() && cmd.scheduledStartTime >= cmd.scheduledEndTime) {
+        return Result<SessionSummaryDto>::error(
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "Scheduled end time must be after start time"));
     }
 
-    std::optional<std::int64_t> instId = cmd.instructorId;
-    if (!instId.has_value() || *instId <= 0) {
-        instId = groupOpt->instructorId;
+    try {
+        domain::Session s;
+        s.groupId = cmd.groupId;
+        s.instructorId = cmd.instructorId;
+        s.sessionDate = cmd.sessionDate;
+        s.scheduledStartTime = cmd.scheduledStartTime;
+        s.scheduledEndTime = cmd.scheduledEndTime;
+        s.plannedDurationMinutes = (cmd.plannedDurationMinutes > 0) ? cmd.plannedDurationMinutes : 60;
+        s.actualDurationMinutes = s.plannedDurationMinutes;
+        s.payableDurationMinutes = s.plannedDurationMinutes;
+        s.status = domain::SessionStatus::Scheduled;
+        s.approvalStatus = domain::SessionApprovalStatus::Pending;
+        s.notes = cmd.notes;
+
+        const auto now = m_clock->nowUtcIso();
+        s.createdAtUtc = now;
+        s.updatedAtUtc = now;
+
+        // Snapshot current instructor rate if assigned
+        if (s.instructorId.has_value() && *s.instructorId > 0) {
+            auto instOpt = m_instructorRepo->findById(*s.instructorId);
+            if (instOpt.has_value()) {
+                s.hourlyRateSnapshot = instOpt->baseRate.piasters() > 0 ? instOpt->baseRate : instOpt->hourlyRate;
+            }
+        }
+
+        auto saved = m_sessionRepo->save(s);
+        return Result<SessionSummaryDto>::ok(buildSessionDto(saved));
+    } catch (const std::exception& e) {
+        return Result<SessionSummaryDto>::error(
+            domain::DomainError(domain::ErrorCode::DatabaseError, e.what()));
     }
-
-    const auto now = m_clock->nowUtcIso();
-    domain::Session s;
-    s.groupId = cmd.groupId;
-    s.instructorId = instId;
-    s.sessionDate = cmd.sessionDate;
-    s.scheduledStartTime = cmd.scheduledStartTime;
-    s.scheduledEndTime = cmd.scheduledEndTime;
-    s.actualStartTime = cmd.scheduledStartTime;
-    s.actualEndTime = cmd.scheduledEndTime;
-    s.plannedDurationMinutes = cmd.plannedDurationMinutes > 0 ? cmd.plannedDurationMinutes : 60;
-    s.actualDurationMinutes = s.plannedDurationMinutes;
-    s.payableDurationMinutes = s.plannedDurationMinutes;
-    s.status = domain::SessionStatus::Scheduled;
-    s.approvalStatus = domain::SessionApprovalStatus::Pending;
-    s.notes = cmd.notes;
-    s.createdAtUtc = now;
-    s.updatedAtUtc = now;
-
-    auto saved = m_sessionRepo->save(s);
-    return Result<SessionSummaryDto>::ok(buildSessionDto(saved));
 }
 
 Result<SessionSummaryDto> InstructorPayrollUseCases::updateSession(const UpdateSessionCommand& cmd) {
-    m_authContext->enforcePermission("session.edit");
+    m_authContext->enforcePermission("groups.manage");
 
     auto sOpt = m_sessionRepo->findById(cmd.id);
     if (!sOpt.has_value()) {
@@ -89,53 +109,88 @@ Result<SessionSummaryDto> InstructorPayrollUseCases::updateSession(const UpdateS
             domain::DomainError(domain::ErrorCode::ValidationFailed, "Session not found"));
     }
 
-    auto s = *sOpt;
-    if (cmd.instructorId.has_value()) s.instructorId = cmd.instructorId;
-    if (!cmd.sessionDate.empty()) s.sessionDate = cmd.sessionDate;
-    if (!cmd.actualStartTime.empty()) s.actualStartTime = cmd.actualStartTime;
-    if (!cmd.actualEndTime.empty()) s.actualEndTime = cmd.actualEndTime;
-    if (cmd.actualDurationMinutes > 0) s.actualDurationMinutes = cmd.actualDurationMinutes;
-    if (cmd.payableDurationMinutes > 0) s.payableDurationMinutes = cmd.payableDurationMinutes;
-    if (!cmd.status.empty()) s.status = parseSessionStatus(cmd.status);
-    if (!cmd.notes.empty()) s.notes = cmd.notes;
-    s.updatedAtUtc = m_clock->nowUtcIso();
+    try {
+        auto s = *sOpt;
+        if (cmd.instructorId.has_value()) {
+            s.instructorId = cmd.instructorId;
+            if (*cmd.instructorId > 0) {
+                auto instOpt = m_instructorRepo->findById(*cmd.instructorId);
+                if (instOpt.has_value()) {
+                    s.hourlyRateSnapshot = instOpt->baseRate.piasters() > 0 ? instOpt->baseRate : instOpt->hourlyRate;
+                }
+            }
+        }
+        if (!cmd.sessionDate.empty()) s.sessionDate = cmd.sessionDate;
+        if (!cmd.scheduledStartTime.empty()) s.scheduledStartTime = cmd.scheduledStartTime;
+        if (!cmd.scheduledEndTime.empty()) s.scheduledEndTime = cmd.scheduledEndTime;
+        if (cmd.plannedDurationMinutes > 0) s.plannedDurationMinutes = cmd.plannedDurationMinutes;
+        if (!s.scheduledStartTime.empty() && !s.scheduledEndTime.empty() && s.scheduledStartTime >= s.scheduledEndTime) {
+            return Result<SessionSummaryDto>::error(
+                domain::DomainError(domain::ErrorCode::ValidationFailed, "Scheduled end time must be after start time"));
+        }
+        if (!cmd.actualStartTime.empty()) s.actualStartTime = cmd.actualStartTime;
+        if (!cmd.actualEndTime.empty()) s.actualEndTime = cmd.actualEndTime;
+        if (cmd.actualDurationMinutes > 0) s.actualDurationMinutes = cmd.actualDurationMinutes;
+        if (cmd.payableDurationMinutes > 0) s.payableDurationMinutes = cmd.payableDurationMinutes;
+        if (!cmd.status.empty()) s.status = parseSessionStatus(cmd.status);
+        if (!cmd.notes.empty()) s.notes = cmd.notes;
+        s.updatedAtUtc = m_clock->nowUtcIso();
 
-    auto saved = m_sessionRepo->save(s);
-    return Result<SessionSummaryDto>::ok(buildSessionDto(saved));
+        auto saved = m_sessionRepo->save(s);
+        return Result<SessionSummaryDto>::ok(buildSessionDto(saved));
+    } catch (const std::exception& e) {
+        return Result<SessionSummaryDto>::error(
+            domain::DomainError(domain::ErrorCode::DatabaseError, e.what()));
+    }
 }
 
 Result<SessionSummaryDto> InstructorPayrollUseCases::approveSession(const ApproveSessionCommand& cmd) {
-    m_authContext->enforcePermission("payroll.calculate_approve");
+    if (!m_authContext->hasPermission("payroll.calculate_approve")) {
+        return Result<SessionSummaryDto>::error(
+            domain::DomainError(domain::ErrorCode::PermissionDenied,
+                                "غير مصرح: اعتماد الحصص واحتساب المستحقات من صلاحية المالك فقط."));
+    }
 
     auto sOpt = m_sessionRepo->findById(cmd.sessionId);
     if (!sOpt.has_value()) {
         return Result<SessionSummaryDto>::error(
-            domain::DomainError(domain::ErrorCode::ValidationFailed, "Session not found"));
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "الحصة غير موجودة."));
     }
 
-    auto s = *sOpt;
-    s.payableDurationMinutes = cmd.approvedPayableMinutes;
-    s.status = domain::SessionStatus::Completed;
-    s.approvalStatus = domain::SessionApprovalStatus::Approved;
-    s.approvedBy = cmd.approvedByUserId;
-    s.approvedAtUtc = m_clock->nowUtcIso();
-    s.updatedAtUtc = s.approvedAtUtc.value();
+    if (sOpt->approvalStatus == domain::SessionApprovalStatus::Approved) {
+        return Result<SessionSummaryDto>::error(
+            domain::DomainError(domain::ErrorCode::BusinessRuleViolation, "الحصة معتمدة بالفعل ولا يمكن اعتمادها مرتين."));
+    }
 
-    if (s.instructorId.has_value() && *s.instructorId > 0) {
-        auto instOpt = m_instructorRepo->findById(*s.instructorId);
-        if (instOpt.has_value()) {
-            s.hourlyRateSnapshot = instOpt->hourlyRate;
-            s.earnedAmount = domain::Session::calculateEarnings(s.payableDurationMinutes, s.hourlyRateSnapshot);
+    try {
+        auto s = *sOpt;
+        s.payableDurationMinutes = cmd.approvedPayableMinutes;
+        s.status = domain::SessionStatus::Completed;
+        s.approvalStatus = domain::SessionApprovalStatus::Approved;
+        s.settlementStatus = domain::SessionSettlementStatus::Unpaid;
+        s.approvedBy = cmd.approvedByUserId;
+        s.approvedAtUtc = m_clock->nowUtcIso();
+        s.updatedAtUtc = s.approvedAtUtc.value();
+
+        if (s.instructorId.has_value() && *s.instructorId > 0) {
+            auto instOpt = m_instructorRepo->findById(*s.instructorId);
+            if (instOpt.has_value()) {
+                s.hourlyRateSnapshot = instOpt->baseRate.piasters() > 0 ? instOpt->baseRate : instOpt->hourlyRate;
+                s.earnedAmount = domain::Session::calculateEarnings(s.payableDurationMinutes, s.hourlyRateSnapshot, instOpt->compensationType);
+            }
         }
+
+        auto saved = m_sessionRepo->save(s);
+
+        m_auditService->record(cmd.approvedByUserId, "SESSION_APPROVED", "Session",
+                               std::to_string(cmd.sessionId),
+                               "Approved teaching session with earned amount: " + s.earnedAmount.format());
+
+        return Result<SessionSummaryDto>::ok(buildSessionDto(saved));
+    } catch (const std::exception& e) {
+        return Result<SessionSummaryDto>::error(
+            domain::DomainError(domain::ErrorCode::DatabaseError, e.what()));
     }
-
-    auto saved = m_sessionRepo->save(s);
-
-    m_auditService->record(cmd.approvedByUserId, "SESSION_APPROVED", "Session",
-                           std::to_string(cmd.sessionId),
-                           "Approved teaching session with earned amount: " + s.earnedAmount.format());
-
-    return Result<SessionSummaryDto>::ok(buildSessionDto(saved));
 }
 
 Result<std::vector<SessionSummaryDto>> InstructorPayrollUseCases::listSessions(const SessionFilter& filter) {
@@ -160,48 +215,84 @@ Result<SessionSummaryDto> InstructorPayrollUseCases::getSession(std::int64_t ses
 Result<InstructorPayoutDto> InstructorPayrollUseCases::recordPayout(const RecordInstructorPayoutCommand& cmd) {
     m_authContext->enforcePermission("payroll.pay_instructor");
 
+    if (cmd.instructorId <= 0) {
+        return Result<InstructorPayoutDto>::error(
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "Valid instructor is required"));
+    }
+    if (cmd.amountPiastres <= 0) {
+        return Result<InstructorPayoutDto>::error(
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "Payout amount must be greater than zero"));
+    }
+
     auto instOpt = m_instructorRepo->findById(cmd.instructorId);
     if (!instOpt.has_value()) {
         return Result<InstructorPayoutDto>::error(
             domain::DomainError(domain::ErrorCode::ValidationFailed, "Instructor not found"));
     }
 
-    if (cmd.amountPiastres <= 0) {
-        return Result<InstructorPayoutDto>::error(
-            domain::DomainError(domain::ErrorCode::ValidationFailed, "Payout amount must be positive"));
-    }
-
-    // Check outstanding dues
-    std::int64_t grossEarned = m_sessionRepo->sumApprovedEarnings(cmd.instructorId);
-    std::int64_t totalPaid = m_payoutRepo->totalPaidOut(cmd.instructorId);
-    std::int64_t outstanding = grossEarned - totalPaid;
+    // Check outstanding balance to prevent overpaying
+    std::int64_t approvedEarnings = m_sessionRepo->sumApprovedEarnings(cmd.instructorId);
+    std::int64_t alreadyPaidOut = m_payoutRepo->totalPaidOut(cmd.instructorId);
+    std::int64_t outstanding = approvedEarnings - alreadyPaidOut;
 
     if (cmd.amountPiastres > outstanding) {
         return Result<InstructorPayoutDto>::error(
-            domain::DomainError(domain::ErrorCode::BusinessRuleViolation, "Payout amount exceeds approved outstanding dues"));
+            domain::DomainError(domain::ErrorCode::BusinessRuleViolation,
+                                "Payout amount exceeds approved outstanding dues"));
     }
 
-    std::string receiptNo = m_payoutRepo->nextReceiptNumber();
-    const auto now = m_clock->nowUtcIso();
+    domain::InstructorPayout payout;
+    payout.instructorId = cmd.instructorId;
+    payout.amount = domain::Money(cmd.amountPiastres);
+    payout.paymentDateUtc = cmd.paymentDateUtc.empty() ? m_clock->nowUtcIso() : cmd.paymentDateUtc;
+    payout.paymentMethod = (cmd.paymentMethod == "bank_transfer")
+        ? domain::PayoutMethod::BankTransfer
+        : domain::PayoutMethod::Cash;
+    payout.referenceNumber = cmd.referenceNumber;
+    payout.notes = cmd.notes;
+    payout.createdBy = cmd.createdByUserId;
+    payout.approvedBy = cmd.approvedByUserId;
+    payout.receiptNumber = m_payoutRepo->nextReceiptNumber();
+    payout.createdAtUtc = m_clock->nowUtcIso();
 
-    domain::InstructorPayout p;
-    p.instructorId = cmd.instructorId;
-    p.amount = domain::Money(cmd.amountPiastres);
-    p.paymentDateUtc = cmd.paymentDateUtc.empty() ? now : cmd.paymentDateUtc;
-    p.paymentMethod = (cmd.paymentMethod == "bank_transfer") ? domain::PayoutMethod::BankTransfer : domain::PayoutMethod::Cash;
-    p.referenceNumber = cmd.referenceNumber;
-    p.receiptNumber = receiptNo;
-    p.notes = cmd.notes;
-    p.createdBy = cmd.createdByUserId;
-    p.approvedBy = cmd.approvedByUserId;
-    p.createdAtUtc = now;
+    auto saved = m_payoutRepo->save(payout);
 
-    auto saved = m_payoutRepo->save(p);
+    // Allocate payout amount across eligible approved sessions that are unpaid or partially paid
+    std::int64_t remainingToAllocate = cmd.amountPiastres;
+    SessionFilter fSess;
+    fSess.instructorId = cmd.instructorId;
+    auto instructorSessions = m_sessionRepo->findAll(fSess);
+    for (auto& s : instructorSessions) {
+        if (remainingToAllocate <= 0) break;
+        if (s.approvalStatus != domain::SessionApprovalStatus::Approved) continue;
+        if (s.settlementStatus == domain::SessionSettlementStatus::FullyPaid) continue;
+        if (s.earnedAmount.piasters() <= 0) continue;
+
+        std::int64_t sessionEarned = s.earnedAmount.piasters();
+        std::int64_t alloc = std::min(remainingToAllocate, sessionEarned);
+
+        domain::InstructorPayoutAllocation allocation;
+        allocation.payoutId = saved.id;
+        allocation.sessionId = s.id;
+        allocation.allocatedAmount = domain::Money(alloc);
+        allocation.createdAtUtc = saved.createdAtUtc;
+        m_payoutRepo->saveAllocation(allocation);
+
+        if (alloc >= sessionEarned) {
+            s.settlementStatus = domain::SessionSettlementStatus::FullyPaid;
+        } else {
+            s.settlementStatus = domain::SessionSettlementStatus::PartiallyPaid;
+        }
+        m_sessionRepo->save(s);
+
+        remainingToAllocate -= alloc;
+    }
 
     std::string actorId = cmd.createdByUserId.value_or("system");
     m_auditService->record(actorId, "INSTRUCTOR_PAYOUT_RECORDED", "InstructorPayout",
                            std::to_string(saved.id),
-                           "Issued payout receipt " + receiptNo + " for instructor: " + instOpt->fullName);
+                           "Disbursed payout receipt #" + saved.receiptNumber + " of " + saved.amount.format() +
+                           " to " + instOpt->fullName);
 
     InstructorPayoutDto dto;
     dto.id = saved.id;
@@ -209,24 +300,27 @@ Result<InstructorPayoutDto> InstructorPayrollUseCases::recordPayout(const Record
     dto.instructorName = instOpt->fullName;
     dto.amountPiastres = saved.amount.piasters();
     dto.paymentDateUtc = saved.paymentDateUtc;
-    dto.paymentMethod = cmd.paymentMethod;
+    dto.paymentMethod = (saved.paymentMethod == domain::PayoutMethod::BankTransfer) ? "bank_transfer" : "cash";
     dto.referenceNumber = saved.referenceNumber;
     dto.receiptNumber = saved.receiptNumber;
     dto.notes = saved.notes;
     dto.createdAtUtc = saved.createdAtUtc;
 
-    return Result<InstructorPayoutDto>::ok(dto);
+    return Result<InstructorPayoutDto>::ok(std::move(dto));
 }
 
 Result<std::vector<InstructorPayoutDto>> InstructorPayrollUseCases::listPayouts(std::int64_t instructorId) {
-    auto payouts = m_payoutRepo->findByInstructor(instructorId);
-    auto instOpt = m_instructorRepo->findById(instructorId);
-    std::string instName = instOpt.has_value() ? instOpt->fullName : "";
+    m_authContext->enforcePermission("payroll.read");
+
+    auto list = m_payoutRepo->findByInstructor(instructorId);
+    std::string instName;
+    if (auto instOpt = m_instructorRepo->findById(instructorId); instOpt.has_value()) {
+        instName = instOpt->fullName;
+    }
 
     std::vector<InstructorPayoutDto> dtos;
-    dtos.reserve(payouts.size());
-
-    for (const auto& p : payouts) {
+    dtos.reserve(list.size());
+    for (const auto& p : list) {
         InstructorPayoutDto dto;
         dto.id = p.id;
         dto.instructorId = p.instructorId;
@@ -256,11 +350,32 @@ Result<InstructorPayrollSummaryDto> InstructorPayrollUseCases::getInstructorPayr
     summary.instructorId = instructorId;
     summary.instructorName = instOpt->fullName;
     summary.specialization = instOpt->specialization;
-    summary.currentHourlyRatePiastres = instOpt->hourlyRate.piasters();
+    summary.compensationType = domain::compensationTypeToString(instOpt->compensationType);
+    summary.currentHourlyRatePiastres = instOpt->baseRate.piasters() > 0 ? instOpt->baseRate.piasters() : instOpt->hourlyRate.piasters();
+    summary.monthlySalaryPiastres = instOpt->monthlySalary.piasters() > 0 ? instOpt->monthlySalary.piasters() : summary.currentHourlyRatePiastres;
 
     SessionFilter fAll;
     fAll.instructorId = instructorId;
     summary.totalScheduledSessions = m_sessionRepo->count(fAll);
+
+    auto sessions = m_sessionRepo->findAll(fAll);
+    int pendingAppr = 0;
+    int approvedUnpaid = 0;
+    int settled = 0;
+    for (const auto& s : sessions) {
+        if (s.approvalStatus == domain::SessionApprovalStatus::Pending && s.status == domain::SessionStatus::Completed) {
+            pendingAppr++;
+        } else if (s.approvalStatus == domain::SessionApprovalStatus::Approved) {
+            if (s.settlementStatus == domain::SessionSettlementStatus::FullyPaid) {
+                settled++;
+            } else {
+                approvedUnpaid++;
+            }
+        }
+    }
+    summary.pendingApprovalSessionsCount = pendingAppr;
+    summary.approvedUnpaidSessionsCount = approvedUnpaid;
+    summary.settledSessionsCount = settled;
 
     summary.totalApprovedPayableMinutes = m_sessionRepo->sumApprovedMinutes(instructorId);
     summary.totalCompletedSessions = m_sessionRepo->countLessonsTaught(instructorId);
@@ -269,8 +384,125 @@ Result<InstructorPayrollSummaryDto> InstructorPayrollUseCases::getInstructorPayr
     summary.grossEarnedPiastres = m_sessionRepo->sumApprovedEarnings(instructorId);
     summary.totalPaidOutPiastres = m_payoutRepo->totalPaidOut(instructorId);
     summary.outstandingDuesPiastres = summary.grossEarnedPiastres - summary.totalPaidOutPiastres;
+    if (summary.outstandingDuesPiastres < 0) {
+        summary.outstandingDuesPiastres = 0;
+    }
+
+    if (summary.grossEarnedPiastres > 0 && summary.outstandingDuesPiastres <= 0) {
+        summary.settlementStatus = "fully_paid";
+    } else if (summary.totalPaidOutPiastres > 0 && summary.outstandingDuesPiastres > 0) {
+        summary.settlementStatus = "partially_paid";
+    } else {
+        summary.settlementStatus = "unpaid";
+    }
 
     return Result<InstructorPayrollSummaryDto>::ok(summary);
+}
+
+Result<InstructorDto> InstructorPayrollUseCases::createInstructor(const CreateInstructorCommand& cmd) {
+    if (cmd.fullName.empty()) {
+        return Result<InstructorDto>::error(
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "Instructor name cannot be empty"));
+    }
+
+    try {
+        domain::Instructor inst;
+        inst.fullName = cmd.fullName;
+        inst.phone = cmd.phone;
+        inst.specialization = cmd.specialization;
+        inst.compensationType = domain::compensationTypeFromString(cmd.compensationType);
+        inst.baseRate = domain::Money(cmd.baseRatePiastres);
+        inst.hourlyRate = inst.baseRate;
+        inst.monthlySalary = domain::Money(cmd.monthlySalaryPiastres > 0 ? cmd.monthlySalaryPiastres : (inst.compensationType == domain::CompensationType::MonthlySalary ? cmd.baseRatePiastres : 0));
+        inst.contractStartDate = cmd.contractStartDate;
+        inst.contractEndDate = cmd.contractEndDate;
+        inst.notes = cmd.notes;
+        inst.status = domain::InstructorStatus::Active;
+
+        auto saved = m_instructorRepo->save(inst);
+        std::string actorId = m_authContext->currentUser().has_value() ? m_authContext->currentUser()->id() : "system";
+        m_auditService->record(actorId, "INSTRUCTOR_CREATED", "Instructor", std::to_string(saved.id),
+                               "Created instructor profile: " + saved.fullName);
+
+        return Result<InstructorDto>::ok(toInstructorDto(saved));
+    } catch (const std::exception& e) {
+        return Result<InstructorDto>::error(
+            domain::DomainError(domain::ErrorCode::DatabaseError, e.what()));
+    }
+}
+
+Result<InstructorDto> InstructorPayrollUseCases::updateInstructor(const UpdateInstructorCommand& cmd) {
+    auto instOpt = m_instructorRepo->findById(cmd.id);
+    if (!instOpt.has_value()) {
+        return Result<InstructorDto>::error(
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "Instructor not found"));
+    }
+
+    if (cmd.fullName.empty()) {
+        return Result<InstructorDto>::error(
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "Instructor name cannot be empty"));
+    }
+
+    try {
+        auto inst = *instOpt;
+        inst.fullName = cmd.fullName;
+        inst.phone = cmd.phone;
+        inst.specialization = cmd.specialization;
+        inst.compensationType = domain::compensationTypeFromString(cmd.compensationType);
+        inst.baseRate = domain::Money(cmd.baseRatePiastres);
+        inst.hourlyRate = inst.baseRate;
+        inst.monthlySalary = domain::Money(cmd.monthlySalaryPiastres > 0 ? cmd.monthlySalaryPiastres : (inst.compensationType == domain::CompensationType::MonthlySalary ? cmd.baseRatePiastres : 0));
+        inst.contractStartDate = cmd.contractStartDate;
+        inst.contractEndDate = cmd.contractEndDate;
+        inst.notes = cmd.notes;
+        inst.status = (cmd.status == "inactive") ? domain::InstructorStatus::Inactive : domain::InstructorStatus::Active;
+
+        auto saved = m_instructorRepo->save(inst);
+        std::string actorId = m_authContext->currentUser().has_value() ? m_authContext->currentUser()->id() : "system";
+        m_auditService->record(actorId, "INSTRUCTOR_UPDATED", "Instructor", std::to_string(saved.id),
+                               "Updated instructor profile: " + saved.fullName);
+
+        return Result<InstructorDto>::ok(toInstructorDto(saved));
+    } catch (const std::exception& e) {
+        return Result<InstructorDto>::error(
+            domain::DomainError(domain::ErrorCode::DatabaseError, e.what()));
+    }
+}
+
+Result<std::vector<InstructorDto>> InstructorPayrollUseCases::listInstructors(const InstructorFilter& filter) {
+    auto list = m_instructorRepo->findAll(filter);
+    std::vector<InstructorDto> dtos;
+    dtos.reserve(list.size());
+    for (const auto& inst : list) {
+        dtos.push_back(toInstructorDto(inst));
+    }
+    return Result<std::vector<InstructorDto>>::ok(std::move(dtos));
+}
+
+Result<InstructorDto> InstructorPayrollUseCases::getInstructor(std::int64_t id) {
+    auto instOpt = m_instructorRepo->findById(id);
+    if (!instOpt.has_value()) {
+        return Result<InstructorDto>::error(
+            domain::DomainError(domain::ErrorCode::ValidationFailed, "Instructor not found"));
+    }
+    return Result<InstructorDto>::ok(toInstructorDto(*instOpt));
+}
+
+InstructorDto InstructorPayrollUseCases::toInstructorDto(const domain::Instructor& inst) {
+    return InstructorDto{
+        .id = inst.id,
+        .userId = std::nullopt,
+        .fullName = inst.fullName,
+        .phone = inst.phone,
+        .specialization = inst.specialization,
+        .compensationType = domain::compensationTypeToString(inst.compensationType),
+        .baseRatePiastres = inst.baseRate.piasters() > 0 ? inst.baseRate.piasters() : inst.hourlyRate.piasters(),
+        .monthlySalaryPiastres = inst.monthlySalary.piasters() > 0 ? inst.monthlySalary.piasters() : inst.baseRate.piasters(),
+        .contractStartDate = inst.contractStartDate,
+        .contractEndDate = inst.contractEndDate,
+        .notes = inst.notes,
+        .status = (inst.status == domain::InstructorStatus::Active) ? "active" : "inactive"
+    };
 }
 
 SessionSummaryDto InstructorPayrollUseCases::buildSessionDto(const domain::Session& s) {
@@ -283,6 +515,7 @@ SessionSummaryDto InstructorPayrollUseCases::buildSessionDto(const domain::Sessi
     dto.scheduledEndTime = s.scheduledEndTime;
     dto.status = formatSessionStatus(s.status);
     dto.approvalStatus = formatApprovalStatus(s.approvalStatus);
+    dto.settlementStatus = s.settlementStatusToString();
     dto.plannedDurationMinutes = s.plannedDurationMinutes;
     dto.actualDurationMinutes = s.actualDurationMinutes;
     dto.payableDurationMinutes = s.payableDurationMinutes;

@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 #include <optional>
+#include "Instructor.h"
 #include "../value_objects/Money.h"
 #include "../errors/DomainError.h"
 
@@ -21,6 +22,12 @@ enum class SessionApprovalStatus {
     Rejected
 };
 
+enum class SessionSettlementStatus {
+    Unpaid,
+    PartiallyPaid,
+    FullyPaid
+};
+
 struct Session {
     std::int64_t id{0};
     std::int64_t groupId{0};
@@ -35,6 +42,7 @@ struct Session {
     int payableDurationMinutes{60};
     SessionStatus status{SessionStatus::Scheduled};
     SessionApprovalStatus approvalStatus{SessionApprovalStatus::Pending};
+    SessionSettlementStatus settlementStatus{SessionSettlementStatus::Unpaid};
     std::optional<std::string> approvedBy;
     std::optional<std::string> approvedAtUtc;
     Money hourlyRateSnapshot{0};
@@ -70,20 +78,46 @@ struct Session {
         }
     }
 
-    void approve(const std::string& adminId, const std::string& nowUtc) {
+    [[nodiscard]] std::string settlementStatusToString() const {
+        switch (settlementStatus) {
+            case SessionSettlementStatus::FullyPaid: return "fully_paid";
+            case SessionSettlementStatus::PartiallyPaid: return "partially_paid";
+            default: return "unpaid";
+        }
+    }
+
+    [[nodiscard]] static SessionSettlementStatus settlementStatusFromString(std::string_view str) noexcept {
+        if (str == "fully_paid") return SessionSettlementStatus::FullyPaid;
+        if (str == "partially_paid") return SessionSettlementStatus::PartiallyPaid;
+        return SessionSettlementStatus::Unpaid;
+    }
+
+    void approve(const std::string& adminId, const std::string& nowUtc, CompensationType compType = CompensationType::Hourly) {
         approvalStatus = SessionApprovalStatus::Approved;
         approvedBy = adminId;
         approvedAtUtc = nowUtc;
-        earnedAmount = calculateEarnings(payableDurationMinutes, hourlyRateSnapshot);
+        if (status == SessionStatus::Completed) {
+            earnedAmount = calculateEarnings(payableDurationMinutes, hourlyRateSnapshot, compType);
+        } else {
+            earnedAmount = Money(0);
+        }
     }
 
-    [[nodiscard]] static Money calculateEarnings(int payableMinutes, Money hourlyRate) noexcept {
-        if (payableMinutes <= 0 || hourlyRate.piasters() <= 0) {
+    [[nodiscard]] static Money calculateEarnings(int payableMinutes, Money rate, CompensationType compType = CompensationType::Hourly) noexcept {
+        if (payableMinutes <= 0 || rate.piasters() <= 0) {
             return Money(0);
         }
-        // Formula: (payableMinutes * hourlyRate) / 60
+        if (compType == CompensationType::PerSession) {
+            return rate;
+        }
+        if (compType == CompensationType::MonthlySalary || compType == CompensationType::FixedContract) {
+            // For Monthly Salary or Fixed Contract, teaching sessions track teaching delivery and attendance;
+            // they do not generate per-session financial earnings!
+            return Money(0);
+        }
+        // Hourly: (payableMinutes * hourlyRate) / 60
         // Calculate strictly with integer math to prevent floating point inaccuracies
-        std::int64_t totalPiastres = (static_cast<std::int64_t>(payableMinutes) * hourlyRate.piasters()) / 60;
+        std::int64_t totalPiastres = (static_cast<std::int64_t>(payableMinutes) * rate.piasters()) / 60;
         return Money(totalPiastres);
     }
 };

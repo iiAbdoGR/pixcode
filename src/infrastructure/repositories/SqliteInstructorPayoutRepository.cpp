@@ -139,4 +139,71 @@ std::int64_t SqliteInstructorPayoutRepository::totalPaidOut(std::int64_t instruc
     return 0;
 }
 
+std::int64_t SqliteInstructorPayoutRepository::totalAllPayouts() {
+    auto db = m_dbManager->getConnection();
+    QSqlQuery q(db);
+    q.prepare("SELECT COALESCE(SUM(amount_piastres), 0) FROM instructor_payouts;");
+    if (q.exec() && q.next()) {
+        return q.value(0).toLongLong();
+    }
+    return 0;
+}
+
+void SqliteInstructorPayoutRepository::saveAllocation(const domain::InstructorPayoutAllocation& alloc) {
+    auto db = m_dbManager->getConnection();
+    QString now = alloc.createdAtUtc.empty()
+        ? QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)
+        : QString::fromStdString(alloc.createdAtUtc);
+
+    QSqlQuery q(db);
+    q.prepare(R"(
+        INSERT INTO instructor_payout_allocations (
+            payout_id, session_id, salary_period_id, allocated_amount_piastres, created_at_utc
+        ) VALUES (
+            :pid, :sid, :spid, :amount, :created
+        );
+    )");
+    q.bindValue(":pid", static_cast<qint64>(alloc.payoutId));
+    if (alloc.sessionId.has_value() && *alloc.sessionId > 0) {
+        q.bindValue(":sid", static_cast<qint64>(*alloc.sessionId));
+    } else {
+        q.bindValue(":sid", QVariant(QMetaType(QMetaType::LongLong)));
+    }
+    if (alloc.salaryPeriodId.has_value() && *alloc.salaryPeriodId > 0) {
+        q.bindValue(":spid", static_cast<qint64>(*alloc.salaryPeriodId));
+    } else {
+        q.bindValue(":spid", QVariant(QMetaType(QMetaType::LongLong)));
+    }
+    q.bindValue(":amount", static_cast<qint64>(alloc.allocatedAmount.piasters()));
+    q.bindValue(":created", now);
+    q.exec();
+}
+
+std::vector<domain::InstructorPayoutAllocation> SqliteInstructorPayoutRepository::findAllocationsByPayout(std::int64_t payoutId) {
+    auto db = m_dbManager->getConnection();
+    QSqlQuery q(db);
+    q.prepare("SELECT * FROM instructor_payout_allocations WHERE payout_id = :pid ORDER BY id ASC;");
+    q.bindValue(":pid", static_cast<qint64>(payoutId));
+
+    std::vector<domain::InstructorPayoutAllocation> list;
+    if (q.exec()) {
+        while (q.next()) {
+            domain::InstructorPayoutAllocation a;
+            a.id = q.value("id").toLongLong();
+            a.payoutId = q.value("payout_id").toLongLong();
+            if (!q.value("session_id").isNull()) {
+                a.sessionId = q.value("session_id").toLongLong();
+            }
+            if (!q.value("salary_period_id").isNull()) {
+                a.salaryPeriodId = q.value("salary_period_id").toLongLong();
+            }
+            a.allocatedAmount = domain::Money(q.value("allocated_amount_piastres").toLongLong());
+            a.createdAtUtc = q.value("created_at_utc").toString().toStdString();
+            list.push_back(a);
+        }
+    }
+    return list;
+}
+
 } // namespace pixcode::infrastructure
+

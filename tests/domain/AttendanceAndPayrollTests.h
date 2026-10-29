@@ -13,4 +13,8 @@ private slots:
     void testAttendanceBatchRecordingAndStats();
     void testAttendanceUniqueConstraint();
     void testPayoutReceiptNumberingAndBalance();
+    void testSessionSchedulingTimeValidationAndRescheduling();
+    void testInstructorCreationAcrossAllCompensationTypes();
+    void testDuplicateSessionApprovalBlocked();
+    void testPayoutAllocationAndSettlement();
 };

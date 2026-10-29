@@ -88,6 +88,7 @@ void LocalizationManager::initDictionary() {
     en["nav.registration"] = "Registration";
     en["nav.students"] = "Students";
     en["nav.courses"] = "Courses & Groups";
+    en["nav.instructors"] = "Instructors";
     en["nav.attendance"] = "Attendance";
     en["nav.finance"] = "Finance";
     en["nav.payroll"] = "Instructor Payroll";
@@ -178,6 +179,73 @@ void LocalizationManager::initDictionary() {
     en["audit.col.type"] = "Entity Type";
     en["audit.col.summary"] = "Summary";
 
+    // Roles
+    en["role.owner"] = "Owner (Full access & financials)";
+    en["role.admin"] = "Admin (Operational duties)";
+
+    // Dashboard
+    en["dash.welcome_sub"] = "Pix Code Academy Management Hub";
+    en["dash.section.operational"] = "Academic Operations";
+    en["dash.active_students"] = "Active Students";
+    en["dash.active_groups"] = "Open Study Groups";
+    en["dash.today_sessions"] = "Today's Sessions";
+    en["dash.att_rate"] = "Overall Attendance Rate";
+    en["dash.section.financial"] = "Financial Overview & KPIs (Authorized Only)";
+    en["dash.total_income"] = "Total Collected Income";
+    en["dash.receivables"] = "Outstanding Student Dues";
+    en["dash.inst_payables"] = "Instructor Payables (Approved)";
+    en["dash.net_cash"] = "Net Operational Cash Balance";
+
+    // Dialogs: Cancel & Restore Subscription
+    en["dialog.cancel_subscription.title"] = "Cancel Subscription";
+    en["dialog.cancel_subscription.heading"] = "Confirm Subscription Cancellation";
+    en["dialog.cancel_subscription.warning"] = "Warning: Cancelling releases the reserved seat in the group while preserving all historical payment records intact.";
+    en["dialog.cancel_subscription.reason"] = "Reason:";
+    en["dialog.cancel_subscription.reason_ph"] = "State the reason for cancellation...";
+    en["dialog.cancel_subscription.reason_req"] = "Please enter a cancellation reason.";
+    en["dialog.cancel_subscription.confirm_btn"] = "Cancel Subscription";
+
+    en["dialog.restore_subscription.title"] = "Restore Subscription";
+    en["dialog.restore_subscription.heading"] = "Restore Cancelled Subscription";
+    en["dialog.restore_subscription.capacity_info"] = "Group Capacity: %1 / %2 active seats filled.";
+    en["dialog.restore_subscription.reason"] = "Reason:";
+    en["dialog.restore_subscription.reason_ph"] = "State the reason for restoring the subscription...";
+    en["dialog.restore_subscription.reason_req"] = "Please enter a restoration reason.";
+    en["dialog.restore_subscription.confirm_btn"] = "Restore Subscription";
+
+    // Dialogs: Instructor
+    en["dialog.instructor.edit_title"] = "Edit Instructor";
+    en["dialog.instructor.create_title"] = "Add Instructor";
+    en["dialog.instructor.name"] = "Full Name:";
+    en["dialog.instructor.phone"] = "Phone Number:";
+    en["dialog.instructor.spec"] = "Specialization:";
+    en["dialog.instructor.comp_type"] = "Compensation Mode:";
+    en["instructor.comp.hourly"] = "Hourly Rate";
+    en["instructor.comp.per_session"] = "Per Session";
+    en["instructor.comp.monthly_salary"] = "Monthly Salary";
+    en["instructor.comp.fixed_contract"] = "Fixed Contract";
+    en["dialog.instructor.base_rate"] = "Rate / Per Session / Hourly (EGP):";
+    en["dialog.instructor.monthly_salary"] = "Monthly Salary (EGP):";
+    en["dialog.instructor.contract_start"] = "Contract Start Date:";
+    en["dialog.instructor.contract_end"] = "Contract End Date:";
+    en["dialog.instructor.status"] = "Status:";
+    en["dialog.instructor.notes"] = "Notes:";
+    en["dialog.instructor.name_req"] = "Instructor name is required.";
+    en["payroll.summary.monthly_salary"] = "Monthly Salary: %1 EGP";
+    en["payroll.summary.per_session"] = "Per Session: %1 EGP";
+    en["payroll.summary.hourly"] = "Hourly Rate: %1 EGP";
+    en["payroll.summary.fixed_contract"] = "Fixed Contract: %1 EGP";
+
+    // Dialogs: Staff
+    en["dialog.staff.edit_title"] = "Edit User Account";
+    en["dialog.staff.create_title"] = "Add User Account";
+    en["dialog.staff.username"] = "Username:";
+    en["dialog.staff.password"] = "Initial Password:";
+    en["dialog.staff.role"] = "System Role:";
+    en["dialog.staff.active"] = "Account Active";
+    en["dialog.staff.user_short"] = "Username must be at least 3 characters.";
+    en["dialog.staff.pass_short"] = "Password must be at least 8 characters.";
+
     // Arabic
     auto& ar = m_dictionary["ar"];
     ar["app.title"] = "نظام إدارة أكاديمية بيكس كود";
@@ -203,6 +271,7 @@ void LocalizationManager::initDictionary() {
     ar["nav.registration"] = "التسجيل السريع";
     ar["nav.students"] = "الطلاب";
     ar["nav.courses"] = "المجموعات والدورات";
+    ar["nav.instructors"] = "المحاضرون";
     ar["nav.attendance"] = "تسجيل الحضور";
     ar["nav.finance"] = "المالية والمقبوضات";
     ar["nav.payroll"] = "مستحقات المدربين";
@@ -292,6 +361,73 @@ void LocalizationManager::initDictionary() {
     ar["audit.col.action"] = "العملية";
     ar["audit.col.type"] = "نوع الكيان";
     ar["audit.col.summary"] = "ملخص البيان";
+
+    // Roles
+    ar["role.owner"] = "مالك الأكاديمية (صلاحيات كاملة ومالية)";
+    ar["role.admin"] = "مسؤول النظام (مهام تشغيلية)";
+
+    // Dashboard
+    ar["dash.welcome_sub"] = "منظومة إدارة أكاديمية بيكس كود";
+    ar["dash.section.operational"] = "المؤشرات والعمليات الأكاديمية";
+    ar["dash.active_students"] = "الطلاب النشطون";
+    ar["dash.active_groups"] = "المجموعات المفتوحة";
+    ar["dash.today_sessions"] = "حصص اليوم المجدولة";
+    ar["dash.att_rate"] = "نسبة الحضور الإجمالية";
+    ar["dash.section.financial"] = "المؤشرات والتدفقات المالية (للمصرح لهم فقط)";
+    ar["dash.total_income"] = "إجمالي المتحصلات المقبوضة";
+    ar["dash.receivables"] = "الرسوم والمستحقات المتبقية للطلاب";
+    ar["dash.inst_payables"] = "مستحقات المدربين المعتمدة";
+    ar["dash.net_cash"] = "صافي الرصيد النقدي الفعلي";
+
+    // Dialogs: Cancel & Restore Subscription
+    ar["dialog.cancel_subscription.title"] = "إلغاء اشتراك طالب";
+    ar["dialog.cancel_subscription.heading"] = "تأكيد إلغاء اشتراك الطالب";
+    ar["dialog.cancel_subscription.warning"] = "تنبيه: يؤدي الإلغاء إلى تفريغ المقعد بالمجموعة مع الحفاظ الكامل على كافة الإيصالات والمدفوعات السابقة بسجل الطالب دون تغيير.";
+    ar["dialog.cancel_subscription.reason"] = "سبب الإلغاء:";
+    ar["dialog.cancel_subscription.reason_ph"] = "اكتب سبب الإلغاء بالتفصيل...";
+    ar["dialog.cancel_subscription.reason_req"] = "يرجى إدخال سبب الإلغاء.";
+    ar["dialog.cancel_subscription.confirm_btn"] = "تأكيد الإلغاء";
+
+    ar["dialog.restore_subscription.title"] = "استعادة اشتراك ملغي";
+    ar["dialog.restore_subscription.heading"] = "استعادة اشتراك الطالب الملغي";
+    ar["dialog.restore_subscription.capacity_info"] = "سعة المجموعة: تم شغل %1 من أصل %2 مقعد.";
+    ar["dialog.restore_subscription.reason"] = "سبب الاستعادة:";
+    ar["dialog.restore_subscription.reason_ph"] = "اكتب سبب استعادة الاشتراك بالتفصيل...";
+    ar["dialog.restore_subscription.reason_req"] = "يرجى إدخال سبب الاستعادة.";
+    ar["dialog.restore_subscription.confirm_btn"] = "استعادة الاشتراك";
+
+    // Dialogs: Instructor
+    ar["dialog.instructor.edit_title"] = "تعديل بيانات المحاضر";
+    ar["dialog.instructor.create_title"] = "إضافة محاضر جديد";
+    ar["dialog.instructor.name"] = "اسم المحاضر:";
+    ar["dialog.instructor.phone"] = "رقم الهاتف:";
+    ar["dialog.instructor.spec"] = "التخصص التدريبي:";
+    ar["dialog.instructor.comp_type"] = "نظام الاستحقاق المالي:";
+    ar["instructor.comp.hourly"] = "بالساعة التدريبية";
+    ar["instructor.comp.per_session"] = "بالحصة المنفذة";
+    ar["instructor.comp.monthly_salary"] = "راتب شهري";
+    ar["instructor.comp.fixed_contract"] = "عقد شهري ثابت";
+    ar["dialog.instructor.base_rate"] = "سعر الحصة / الساعة (ج.م):";
+    ar["dialog.instructor.monthly_salary"] = "الراتب الشهري (ج.م):";
+    ar["dialog.instructor.contract_start"] = "تاريخ بداية العقد:";
+    ar["dialog.instructor.contract_end"] = "تاريخ نهاية العقد:";
+    ar["dialog.instructor.status"] = "الحالة:";
+    ar["dialog.instructor.notes"] = "ملاحظات:";
+    ar["dialog.instructor.name_req"] = "اسم المحاضر مطلوب.";
+    ar["payroll.summary.monthly_salary"] = "راتب شهري: %1 ج.م";
+    ar["payroll.summary.per_session"] = "سعر الحصة: %1 ج.م";
+    ar["payroll.summary.hourly"] = "سعر الساعة: %1 ج.م";
+    ar["payroll.summary.fixed_contract"] = "عقد شهري: %1 ج.م";
+
+    // Dialogs: Staff
+    ar["dialog.staff.edit_title"] = "تعديل حساب المستخدم";
+    ar["dialog.staff.create_title"] = "إضافة مستخدم جديد";
+    ar["dialog.staff.username"] = "اسم المستخدم:";
+    ar["dialog.staff.password"] = "كلمة المرور الأولية:";
+    ar["dialog.staff.role"] = "الدور بالنظام:";
+    ar["dialog.staff.active"] = "الحساب نشط";
+    ar["dialog.staff.user_short"] = "اسم المستخدم يجب ألا يقل عن 3 أحرف.";
+    ar["dialog.staff.pass_short"] = "كلمة المرور يجب ألا تقل عن 8 أحرف.";
 }
 
 } // namespace pixcode::desktop

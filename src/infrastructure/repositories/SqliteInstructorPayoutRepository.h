@@ -15,6 +15,9 @@ public:
     domain::InstructorPayout save(const domain::InstructorPayout& payout) override;
     [[nodiscard]] std::string nextReceiptNumber() override;
     [[nodiscard]] std::int64_t totalPaidOut(std::int64_t instructorId) override;
+    [[nodiscard]] std::int64_t totalAllPayouts() override;
+    void saveAllocation(const domain::InstructorPayoutAllocation& alloc) override;
+    [[nodiscard]] std::vector<domain::InstructorPayoutAllocation> findAllocationsByPayout(std::int64_t payoutId) override;
 
 private:
     [[nodiscard]] domain::InstructorPayout mapRowToPayout(const class QSqlQuery& query);

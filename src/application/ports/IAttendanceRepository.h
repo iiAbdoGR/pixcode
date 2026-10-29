@@ -24,6 +24,8 @@ public:
     // Attendance stats
     [[nodiscard]] virtual int countStudentStatus(std::int64_t studentId, domain::AttendanceStatus status) = 0;
     [[nodiscard]] virtual int countEligibleSessions(std::int64_t studentId) = 0;
+    [[nodiscard]] virtual int countTotalRecords() = 0;
+    [[nodiscard]] virtual int countPresentRecords() = 0;
 };
 
 } // namespace pixcode::application

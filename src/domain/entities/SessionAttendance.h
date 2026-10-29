@@ -37,3 +37,4 @@ struct SessionAttendance {
 };
 
 } // namespace pixcode::domain
+

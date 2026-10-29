@@ -33,6 +33,7 @@
 #include "application/use_cases/StaffManagementUseCases.h"
 #include "application/use_cases/AttendanceUseCases.h"
 #include "application/use_cases/InstructorPayrollUseCases.h"
+#include "application/use_cases/DashboardUseCases.h"
 
 namespace pixcode::desktop {
 
@@ -75,6 +76,7 @@ public:
     [[nodiscard]] std::shared_ptr<application::StaffManagementUseCases> staffUseCases() const noexcept { return m_staffUseCases; }
     [[nodiscard]] std::shared_ptr<application::AttendanceUseCases> attendanceUseCases() const noexcept { return m_attendanceUseCases; }
     [[nodiscard]] std::shared_ptr<application::InstructorPayrollUseCases> payrollUseCases() const noexcept { return m_payrollUseCases; }
+    [[nodiscard]] std::shared_ptr<application::DashboardUseCases> dashboardUseCases() const noexcept { return m_dashboardUseCases; }
 
     // Session Management
     void login(const application::LoginResultDto& resultDto);
@@ -129,6 +131,7 @@ private:
     std::shared_ptr<application::StaffManagementUseCases> m_staffUseCases;
     std::shared_ptr<application::AttendanceUseCases> m_attendanceUseCases;
     std::shared_ptr<application::InstructorPayrollUseCases> m_payrollUseCases;
+    std::shared_ptr<application::DashboardUseCases> m_dashboardUseCases;
 
     QTimer* m_idleTimer;
     int m_secondsRemaining;

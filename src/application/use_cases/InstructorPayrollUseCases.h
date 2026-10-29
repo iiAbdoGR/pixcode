@@ -6,6 +6,7 @@
 #include "application/results/Result.h"
 #include "application/dto/PayrollDtos.h"
 #include "application/dto/AttendanceDtos.h"
+#include "application/dto/EnrollmentDtos.h"
 #include "application/ports/ISessionRepository.h"
 #include "application/ports/IInstructorPayoutRepository.h"
 #include "application/ports/IInstructorRepository.h"
@@ -39,6 +40,12 @@ public:
     Result<std::vector<InstructorPayoutDto>> listPayouts(std::int64_t instructorId);
     Result<InstructorPayrollSummaryDto> getInstructorPayrollSummary(std::int64_t instructorId);
 
+    // Instructor Profile Management (Decoupled non-login staff)
+    Result<InstructorDto> createInstructor(const CreateInstructorCommand& cmd);
+    Result<InstructorDto> updateInstructor(const UpdateInstructorCommand& cmd);
+    Result<std::vector<InstructorDto>> listInstructors(const InstructorFilter& filter = {});
+    Result<InstructorDto> getInstructor(std::int64_t id);
+
 private:
     std::shared_ptr<ISessionRepository> m_sessionRepo;
     std::shared_ptr<IInstructorPayoutRepository> m_payoutRepo;
@@ -50,6 +57,7 @@ private:
     std::shared_ptr<AuditService> m_auditService;
 
     SessionSummaryDto buildSessionDto(const domain::Session& s);
+    static InstructorDto toInstructorDto(const domain::Instructor& inst);
 };
 
 } // namespace pixcode::application

@@ -146,7 +146,12 @@ void UsersView::refresh() {
         QString rolesStr;
         for (const auto& r : u.roles()) {
             if (!rolesStr.isEmpty()) rolesStr += ", ";
-            rolesStr += QString::fromStdString(r.code());
+            QString code = QString::fromStdString(r.code());
+            if (code == "SuperAdmin" || code == "Owner") {
+                rolesStr += LocalizationManager::instance().isRtl() ? "مالك الأكاديمية (Owner)" : "Owner";
+            } else {
+                rolesStr += LocalizationManager::instance().isRtl() ? "مسؤول النظام (Admin)" : "Admin";
+            }
         }
 
         const bool isLocked = u.lockoutUntilUtc().has_value() && !u.lockoutUntilUtc()->empty();
@@ -167,20 +172,27 @@ void UsersView::onUnlockSelectedUser() {
     const int row = m_table->currentRow();
     if (row < 0) return;
 
-    const QString userId = m_table->item(row, 0)->data(Qt::UserRole).toString();
-    auto userOpt = m_appContext->userRepository()->findById(userId.toStdString());
-    if (!userOpt.has_value()) return;
+    try {
+        const QString userId = m_table->item(row, 0)->data(Qt::UserRole).toString();
+        auto userOpt = m_appContext->userRepository()->findById(userId.toStdString());
+        if (!userOpt.has_value()) return;
 
-    auto user = *userOpt;
-    user.unlock();
-    m_appContext->userRepository()->save(user);
+        auto user = *userOpt;
+        user.unlock();
+        m_appContext->userRepository()->save(user);
 
-    m_appContext->auditService()->record(
-        m_appContext->authContext()->currentUser()->id(),
-        "USER_UNLOCKED", "User", user.id(), "Account unlocked by admin"
-    );
+        std::string actorId = m_appContext->authContext()->currentUser().has_value() 
+            ? m_appContext->authContext()->currentUser()->id() : "system";
+        m_appContext->auditService()->record(
+            actorId,
+            "USER_UNLOCKED", "User", user.id(), "Account unlocked by admin"
+        );
 
-    refresh();
+        refresh();
+    } catch (const std::exception& e) {
+        bool isRtl = LocalizationManager::instance().isRtl();
+        QMessageBox::critical(this, isRtl ? "خطأ" : "Error", QString::fromStdString(e.what()));
+    }
 }
 
 void UsersView::onToggleUserActive() {
@@ -199,8 +211,10 @@ void UsersView::onToggleUserActive() {
         user.setActive(!user.isActive(), now, isLastSuper);
         m_appContext->userRepository()->save(user);
 
+        std::string actorId = m_appContext->authContext()->currentUser().has_value() 
+            ? m_appContext->authContext()->currentUser()->id() : "system";
         m_appContext->auditService()->record(
-            m_appContext->authContext()->currentUser()->id(),
+            actorId,
             user.isActive() ? "USER_ENABLED" : "USER_DISABLED",
             "User", user.id(),
             user.isActive() ? "Account enabled by admin" : "Account disabled by admin"
@@ -208,7 +222,11 @@ void UsersView::onToggleUserActive() {
 
         refresh();
     } catch (const domain::DomainError& e) {
-        QMessageBox::warning(this, "Operation Denied", QString::fromStdString(e.message()));
+        bool isRtl = LocalizationManager::instance().isRtl();
+        QMessageBox::warning(this, isRtl ? "تم رفض العملية" : "Operation Denied", QString::fromStdString(e.message()));
+    } catch (const std::exception& e) {
+        bool isRtl = LocalizationManager::instance().isRtl();
+        QMessageBox::critical(this, isRtl ? "خطأ" : "Error", QString::fromStdString(e.what()));
     }
 }
 

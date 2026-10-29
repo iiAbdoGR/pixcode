@@ -2,21 +2,38 @@
 
 namespace pixcode::desktop {
 
+void Theme::setupApplicationPalette(QApplication& app) {
+    QPalette p;
+    p.setColor(QPalette::Window, QColor(Background));
+    p.setColor(QPalette::WindowText, QColor(TextPrimary));
+    p.setColor(QPalette::Base, QColor(Surface));
+    p.setColor(QPalette::AlternateBase, QColor(IceBlue));
+    p.setColor(QPalette::ToolTipBase, QColor(BrandNavy));
+    p.setColor(QPalette::ToolTipText, QColor("#FFFFFF"));
+    p.setColor(QPalette::Text, QColor(TextPrimary));
+    p.setColor(QPalette::Button, QColor(Primary));
+    p.setColor(QPalette::ButtonText, QColor("#FFFFFF"));
+    p.setColor(QPalette::BrightText, QColor(Danger));
+    p.setColor(QPalette::Link, QColor(Primary));
+    p.setColor(QPalette::Highlight, QColor(Primary));
+    p.setColor(QPalette::HighlightedText, QColor("#FFFFFF"));
+    app.setPalette(p);
+}
+
 QString Theme::getApplicationStyleSheet() {
     return QString(R"(
         QWidget {
-            background-color: %1;
             color: %2;
             font-family: "Segoe UI", "Cairo", "Tajawal", "Arial", sans-serif;
             font-size: 13px;
         }
 
-        QMainWindow, QDialog {
+        QMainWindow, QDialog, QStackedWidget {
             background-color: %1;
         }
 
         /* Input Controls */
-        QLineEdit, QTextEdit, QComboBox, QSpinBox {
+        QLineEdit, QTextEdit, QComboBox, QSpinBox, QDateEdit, QTimeEdit {
             background-color: %3;
             color: %2;
             border: 1px solid %4;
@@ -26,7 +43,7 @@ QString Theme::getApplicationStyleSheet() {
             selection-color: %3;
         }
 
-        QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus {
+        QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus, QDateEdit:focus, QTimeEdit:focus {
             border: 2px solid %6;
             padding: 7px 11px;
         }
@@ -50,8 +67,8 @@ QString Theme::getApplicationStyleSheet() {
         }
 
         QPushButton:disabled {
-            background-color: %9;
-            color: #8D99AE;
+            background-color: %4;
+            color: %9;
         }
 
         QPushButton#secondaryButton {
@@ -80,8 +97,33 @@ QString Theme::getApplicationStyleSheet() {
             gridline-color: %12;
             border: 1px solid %4;
             border-radius: 6px;
-            selection-background-color: %10;
-            selection-color: %2;
+            selection-background-color: %6;
+            selection-color: #FFFFFF;
+        }
+
+        QTableWidget::item, QTableView::item {
+            padding: 6px 10px;
+            border: none;
+        }
+
+        QTableWidget::item:hover, QTableView::item:hover {
+            background-color: %10;
+        }
+
+        QTableWidget::item:selected, QTableView::item:selected {
+            background-color: %6;
+            color: #FFFFFF;
+            font-weight: 600;
+        }
+
+        QTableWidget::item:selected:focus, QTableView::item:selected:focus {
+            background-color: %8;
+            color: #FFFFFF;
+        }
+
+        QTableWidget:!focus QTableWidget::item:selected, QTableView:!focus QTableView::item:selected {
+            background-color: %7;
+            color: #FFFFFF;
         }
 
         QHeaderView::section {
@@ -143,15 +185,14 @@ QString Theme::getApplicationStyleSheet() {
     .arg(Surface)         // %3
     .arg(Border)          // %4
     .arg(Secondary)       // %5
-    .arg(Secondary)       // %6
-    .arg(Slate)           // %7
-    .arg(Primary)         // %8
-    .arg(SoftBlue)        // %9
-    .arg(Sage)            // %10
+    .arg(Primary)         // %6
+    .arg(Secondary)       // %7
+    .arg(BrandNavy)       // %8
+    .arg(SkyBlue)         // %9
+    .arg(IceBlue)         // %10
     .arg(Danger)          // %11
     .arg(Border)          // %12
     .arg(Success);        // %13
 }
 
 } // namespace pixcode::desktop
-

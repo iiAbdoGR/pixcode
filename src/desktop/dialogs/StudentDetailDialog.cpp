@@ -2,6 +2,8 @@
 #include "StudentFormDialog.h"
 #include "EnrollmentDialog.h"
 #include "PaymentDialog.h"
+#include "CancelSubscriptionDialog.h"
+#include "RestoreSubscriptionDialog.h"
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QFormLayout>
@@ -26,7 +28,7 @@ StudentDetailDialog::StudentDetailDialog(std::shared_ptr<ApplicationContext> app
 void StudentDetailDialog::setupUi() {
     bool isRtl = LocalizationManager::instance().isRtl();
     setWindowTitle(isRtl ? "تفاصيل الطالب والاشتراكات المالية" : "Student Details & Financial Record");
-    setMinimumSize(850, 550);
+    setMinimumSize(950, 650);
 
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(16);
@@ -74,10 +76,20 @@ void StudentDetailDialog::setupUi() {
     m_recordPaymentBtn->setObjectName("secondaryButton");
     connect(m_recordPaymentBtn, &QPushButton::clicked, this, &StudentDetailDialog::onRecordPaymentClicked);
 
+    m_cancelEnrollmentBtn = new QPushButton(isRtl ? "إلغاء اشتراك" : "Cancel Sub", this);
+    m_cancelEnrollmentBtn->setObjectName("secondaryButton");
+    connect(m_cancelEnrollmentBtn, &QPushButton::clicked, this, &StudentDetailDialog::onCancelSubscriptionClicked);
+
+    m_restoreEnrollmentBtn = new QPushButton(isRtl ? "استعادة اشتراك" : "Restore Sub", this);
+    m_restoreEnrollmentBtn->setObjectName("secondaryButton");
+    connect(m_restoreEnrollmentBtn, &QPushButton::clicked, this, &StudentDetailDialog::onRestoreSubscriptionClicked);
+
     enrollHeaderLayout->addWidget(enrollTitle);
     enrollHeaderLayout->addStretch();
-    enrollHeaderLayout->addWidget(m_newEnrollmentBtn);
+    enrollHeaderLayout->addWidget(m_restoreEnrollmentBtn);
+    enrollHeaderLayout->addWidget(m_cancelEnrollmentBtn);
     enrollHeaderLayout->addWidget(m_recordPaymentBtn);
+    enrollHeaderLayout->addWidget(m_newEnrollmentBtn);
 
     mainLayout->addLayout(enrollHeaderLayout);
 
@@ -106,7 +118,7 @@ void StudentDetailDialog::setupUi() {
     auto* attTitle = new QLabel(isRtl ? "سجل حضور وغياب الطالب:" : "Attendance History:", this);
     attTitle->setStyleSheet("font-weight: bold; font-size: 14px;");
     m_attendanceRateLabel = new QLabel(this);
-    m_attendanceRateLabel->setStyleSheet("font-weight: bold; color: #1976D2; font-size: 13px;");
+    m_attendanceRateLabel->setStyleSheet("font-weight: bold; color: #4C5F6B; font-size: 13px;");
 
     attHeaderLayout->addWidget(attTitle);
     attHeaderLayout->addStretch();
@@ -126,8 +138,11 @@ void StudentDetailDialog::setupUi() {
     m_attendanceTable->setSelectionMode(QAbstractItemView::SingleSelection);
     m_attendanceTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_attendanceTable->horizontalHeader()->setStretchLastSection(true);
-    m_attendanceTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    m_attendanceTable->setMaximumHeight(160);
+    m_attendanceTable->setColumnWidth(0, 130);
+    m_attendanceTable->setColumnWidth(1, 150);
+    m_attendanceTable->setColumnWidth(2, 110);
+    m_attendanceTable->setColumnWidth(3, 110);
+    m_attendanceTable->setMinimumHeight(180);
     mainLayout->addWidget(m_attendanceTable);
 
     // Actions layout
@@ -281,6 +296,40 @@ void StudentDetailDialog::onRecordPaymentClicked() {
 
     std::int64_t enrollmentId = m_enrollmentsTable->item(row, 0)->data(Qt::UserRole).toLongLong();
     PaymentDialog dlg(m_appContext, enrollmentId, this);
+    if (dlg.exec() == QDialog::Accepted) {
+        loadData();
+        emit studentUpdated();
+    }
+}
+
+void StudentDetailDialog::onCancelSubscriptionClicked() {
+    bool isRtl = LocalizationManager::instance().isRtl();
+    int row = m_enrollmentsTable->currentRow();
+    if (row < 0) {
+        QMessageBox::warning(this, isRtl ? "تنبيه" : "Selection Required",
+                             isRtl ? "يرجى تحديد اشتراك من الجدول." : "Please select an enrollment from the table.");
+        return;
+    }
+
+    std::int64_t enrollmentId = m_enrollmentsTable->item(row, 0)->data(Qt::UserRole).toLongLong();
+    CancelSubscriptionDialog dlg(m_appContext, enrollmentId, this);
+    if (dlg.exec() == QDialog::Accepted) {
+        loadData();
+        emit studentUpdated();
+    }
+}
+
+void StudentDetailDialog::onRestoreSubscriptionClicked() {
+    bool isRtl = LocalizationManager::instance().isRtl();
+    int row = m_enrollmentsTable->currentRow();
+    if (row < 0) {
+        QMessageBox::warning(this, isRtl ? "تنبيه" : "Selection Required",
+                             isRtl ? "يرجى تحديد اشتراك من الجدول." : "Please select an enrollment from the table.");
+        return;
+    }
+
+    std::int64_t enrollmentId = m_enrollmentsTable->item(row, 0)->data(Qt::UserRole).toLongLong();
+    RestoreSubscriptionDialog dlg(m_appContext, enrollmentId, this);
     if (dlg.exec() == QDialog::Accepted) {
         loadData();
         emit studentUpdated();

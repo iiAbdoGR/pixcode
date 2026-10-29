@@ -396,4 +396,163 @@ CREATE TABLE IF NOT EXISTS instructor_payouts (
 CREATE INDEX IF NOT EXISTS idx_payouts_inst ON instructor_payouts(instructor_id);
 CREATE INDEX IF NOT EXISTS idx_payouts_rcp  ON instructor_payouts(receipt_number);
 )SQL";
+
+inline constexpr std::string_view V004_BusinessIntegrityAndRoleConsolidationSql = R"SQL(-- Migration V004: Business Integrity, Role Consolidation (Owner & Admin Only) & Subscription Lifecycle
+
+-- 1. Consolidate Roles to Owner and Admin Only
+INSERT OR IGNORE INTO roles (id, code, display_key, is_system_role) VALUES
+('role_owner', 'Owner', 'role.owner', 1),
+('role_admin', 'Admin', 'role.admin', 1);
+
+-- Re-map existing users with legacy roles
+UPDATE user_roles SET role_id = 'role_owner' WHERE role_id = 'role_superadmin';
+UPDATE user_roles SET role_id = 'role_admin' WHERE role_id IN ('role_accountant', 'role_secretary', 'role_instructor');
+
+-- Delete legacy roles from role_permissions, user_roles, and roles
+DELETE FROM role_permissions WHERE role_id IN ('role_accountant', 'role_secretary', 'role_instructor', 'role_superadmin');
+DELETE FROM roles WHERE id IN ('role_accountant', 'role_secretary', 'role_instructor', 'role_superadmin');
+
+-- Ensure permissions for Owner (all) and Admin (operational + permitted finance/payroll operations)
+INSERT OR IGNORE INTO role_permissions (role_id, permission_id)
+SELECT 'role_owner', id FROM permissions;
+
+INSERT OR IGNORE INTO role_permissions (role_id, permission_id)
+SELECT 'role_admin', id FROM permissions WHERE code IN (
+    'students.read', 'students.create', 'students.update',
+    'courses.read', 'groups.read.all', 'groups.read.assigned', 'groups.manage',
+    'attendance.student.read', 'attendance.student.mark',
+    'finance.payments.read', 'finance.payments.collect',
+    'payroll.read', 'payroll.pay_instructor'
+);
+
+-- 2. Restructure enrollments table with audit metadata and partial unique index
+DROP TABLE IF EXISTS enrollments_new;
+CREATE TABLE IF NOT EXISTS enrollments_new (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id           INTEGER NOT NULL REFERENCES students(id) ON DELETE RESTRICT,
+    group_id             INTEGER NOT NULL REFERENCES groups(id) ON DELETE RESTRICT,
+    agreed_fee_piastres  INTEGER NOT NULL DEFAULT 0,
+    discount_piastres    INTEGER NOT NULL DEFAULT 0,
+    net_fee_piastres     INTEGER NOT NULL DEFAULT 0,
+    status               TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','cancelled','transferred','completed')),
+    enrolled_at_utc      TEXT NOT NULL,
+    cancelled_at_utc     TEXT,
+    cancellation_reason  TEXT,
+    cancelled_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    restored_at_utc      TEXT,
+    restoration_reason   TEXT,
+    restored_by_user_id  TEXT REFERENCES users(id) ON DELETE SET NULL,
+    notes                TEXT
+);
+
+INSERT INTO enrollments_new (
+    id, student_id, group_id, agreed_fee_piastres, discount_piastres, net_fee_piastres,
+    status, enrolled_at_utc, cancelled_at_utc, notes
+)
+SELECT
+    id, student_id, group_id, agreed_fee_piastres, discount_piastres, net_fee_piastres,
+    status, enrolled_at_utc, cancelled_at_utc, notes
+FROM enrollments;
+
+DROP TABLE enrollments;
+ALTER TABLE enrollments_new RENAME TO enrollments;
+
+CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_group   ON enrollments(group_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_status  ON enrollments(status);
+
+-- Partial index strictly preventing duplicate ACTIVE enrollments for same student in same group
+-- while permitting historical subscriptions (cancelled, completed, transferred)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_active_enrollment 
+ON enrollments(student_id, group_id) 
+WHERE status = 'active';
+
+-- 3. Extend instructors with compensation type and decouple from user logins
+ALTER TABLE instructors ADD COLUMN compensation_type TEXT NOT NULL DEFAULT 'hourly';
+ALTER TABLE instructors ADD COLUMN base_rate_piastres INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE instructor_rate_history ADD COLUMN compensation_type TEXT NOT NULL DEFAULT 'hourly';
+)SQL";
+
+inline constexpr std::string_view V005_InstructorContractsAndAdminApprovalSql = R"SQL(-- Migration V005: Instructor Contracts & Admin Session Approval Permissions
+
+-- 1. Extend instructors table with contract dates and monthly salary
+ALTER TABLE instructors ADD COLUMN contract_start_date TEXT;
+ALTER TABLE instructors ADD COLUMN contract_end_date TEXT;
+ALTER TABLE instructors ADD COLUMN monthly_salary_piastres INTEGER NOT NULL DEFAULT 0;
+
+-- 2. Grant session approval and payroll calculation approval to Admin role
+INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES
+('role_admin', 'p_att_inst_approve'),
+('role_admin', 'p_pay_calc_appr');
+)SQL";
+
+inline constexpr std::string_view V006_PayrollAllocationsAndRoleSecuritySql = R"SQL(-- Migration V006: Payroll Allocations, Salary Cycles and Role Security Consolidation
+
+-- 1. Create table for Monthly Salary Periods
+CREATE TABLE IF NOT EXISTS instructor_salary_periods (
+    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+    instructor_id          INTEGER NOT NULL REFERENCES instructors(id) ON DELETE RESTRICT,
+    period_month_utc       TEXT NOT NULL,
+    salary_amount_piastres INTEGER NOT NULL CHECK(salary_amount_piastres > 0),
+    status                 TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'paid')),
+    approved_at_utc        TEXT,
+    approved_by_user_id    TEXT REFERENCES users(id) ON DELETE SET NULL,
+    created_at_utc         TEXT NOT NULL,
+    UNIQUE(instructor_id, period_month_utc)
+);
+CREATE INDEX IF NOT EXISTS idx_salary_periods_inst ON instructor_salary_periods(instructor_id);
+
+-- 2. Add settlement_status to sessions
+ALTER TABLE sessions ADD COLUMN settlement_status TEXT NOT NULL DEFAULT 'unpaid';
+CREATE INDEX IF NOT EXISTS idx_sessions_settlement ON sessions(settlement_status);
+
+-- 3. Create table for Payout Allocations
+CREATE TABLE IF NOT EXISTS instructor_payout_allocations (
+    id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+    payout_id                 INTEGER NOT NULL REFERENCES instructor_payouts(id) ON DELETE RESTRICT,
+    session_id                INTEGER REFERENCES sessions(id) ON DELETE RESTRICT,
+    salary_period_id          INTEGER REFERENCES instructor_salary_periods(id) ON DELETE RESTRICT,
+    allocated_amount_piastres INTEGER NOT NULL CHECK(allocated_amount_piastres > 0),
+    created_at_utc            TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_allocations_payout  ON instructor_payout_allocations(payout_id);
+CREATE INDEX IF NOT EXISTS idx_allocations_session ON instructor_payout_allocations(session_id);
+
+-- 4. Mark existing fully-paid historical sessions
+UPDATE sessions 
+SET settlement_status = 'fully_paid' 
+WHERE approval_status = 'approved' 
+  AND instructor_id IN (
+      SELECT instructor_id 
+      FROM instructor_payouts 
+      GROUP BY instructor_id 
+      HAVING SUM(amount_piastres) >= (
+          SELECT COALESCE(SUM(earned_amount_piastres), 0) 
+          FROM sessions s2 
+          WHERE s2.instructor_id = instructor_payouts.instructor_id 
+            AND s2.approval_status = 'approved'
+      )
+  );
+
+-- 5. Revoke general finance and liability approval permissions from Admin role
+DELETE FROM role_permissions 
+WHERE role_id = 'role_admin' 
+  AND permission_id IN (
+      'p_fin_pay_read', 'p_fin_pay_collect', 'p_fin_pay_reverse',
+      'p_fin_disc_apply', 'p_fin_disc_override', 'p_fin_inst_manage',
+      'p_fin_overdue_read', 'p_fin_exp_read', 'p_fin_exp_manage',
+      'p_fin_dash_read', 'p_fin_rep_read',
+      'p_pay_calc_appr', 'p_att_inst_approve'
+  );
+
+-- Ensure Admin has restricted instructor payment execution
+INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES
+('role_admin', 'p_pay_inst_pay'),
+('role_admin', 'p_pay_read_all');
+
+-- Ensure Owner has all permissions
+INSERT OR IGNORE INTO role_permissions (role_id, permission_id)
+SELECT 'role_owner', id FROM permissions;
+)SQL";
 } // namespace pixcode::infrastructure

@@ -1,6 +1,18 @@
 #include "EnrollmentUseCases.h"
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 namespace pixcode::application {
+
+static std::string currentUtcIso() {
+    auto now = std::chrono::system_clock::now();
+    auto itt = std::chrono::system_clock::to_time_t(now);
+    std::ostringstream ss;
+    ss << std::put_time(std::gmtime(&itt), "%Y-%m-%dT%H:%M:%SZ");
+    return ss.str();
+}
 
 EnrollmentUseCases::EnrollmentUseCases(std::shared_ptr<IEnrollmentRepository> enrollments,
                                        std::shared_ptr<IGroupRepository> groups,
@@ -31,7 +43,7 @@ Result<EnrollmentDto> EnrollmentUseCases::enrollStudent(const EnrollStudentComma
     }
 
     if (group->capacity > 0) {
-        int enrolled = m_groups->countActiveEnrollments(cmd.groupId);
+        int enrolled = m_enrollments->countActiveInGroup(cmd.groupId);
         if (enrolled >= group->capacity) {
             return Result<EnrollmentDto>::error(domain::DomainError(domain::ErrorCode::BusinessRuleViolation, "Group has reached maximum capacity."));
         }
@@ -61,8 +73,8 @@ Result<EnrollmentDto> EnrollmentUseCases::enrollStudent(const EnrollStudentComma
     return Result<EnrollmentDto>::ok(buildEnrollmentDto(saved));
 }
 
-Result<EnrollmentDto> EnrollmentUseCases::cancelEnrollment(std::int64_t enrollmentId, const std::string& reason) {
-    auto existing = m_enrollments->findById(enrollmentId);
+Result<EnrollmentDto> EnrollmentUseCases::cancelEnrollment(const CancelSubscriptionCommand& cmd) {
+    auto existing = m_enrollments->findById(cmd.enrollmentId);
     if (!existing) {
         return Result<EnrollmentDto>::error(domain::DomainError(domain::ErrorCode::ValidationFailed, "Enrollment not found."));
     }
@@ -71,12 +83,76 @@ Result<EnrollmentDto> EnrollmentUseCases::cancelEnrollment(std::int64_t enrollme
     }
 
     existing->status = domain::EnrollmentStatus::Cancelled;
-    if (!reason.empty()) {
-        existing->notes += (existing->notes.empty() ? "" : " | ") + reason;
+    existing->cancellationReason = cmd.reason;
+    existing->cancelledAtUtc = currentUtcIso();
+    if (!cmd.cancelledByUserId.empty()) {
+        existing->cancelledByUserId = cmd.cancelledByUserId;
     }
 
     auto saved = m_enrollments->save(*existing);
     return Result<EnrollmentDto>::ok(buildEnrollmentDto(saved));
+}
+
+Result<EnrollmentDto> EnrollmentUseCases::cancelEnrollment(std::int64_t enrollmentId, const std::string& reason) {
+    return cancelEnrollment(CancelSubscriptionCommand{
+        .enrollmentId = enrollmentId,
+        .reason = reason,
+        .cancelledByUserId = ""
+    });
+}
+
+Result<EnrollmentDto> EnrollmentUseCases::restoreSubscription(const RestoreSubscriptionCommand& cmd) {
+    auto existing = m_enrollments->findById(cmd.enrollmentId);
+    if (!existing) {
+        return Result<EnrollmentDto>::error(domain::DomainError(domain::ErrorCode::ValidationFailed, "Enrollment not found."));
+    }
+    if (existing->status != domain::EnrollmentStatus::Cancelled) {
+        return Result<EnrollmentDto>::error(domain::DomainError(domain::ErrorCode::BusinessRuleViolation, "Only cancelled enrollments can be restored."));
+    }
+
+    auto student = m_students->findById(existing->studentId);
+    if (!student || student->status != domain::StudentStatus::Active) {
+        return Result<EnrollmentDto>::error(domain::DomainError(domain::ErrorCode::BusinessRuleViolation, "Student is inactive or archived; cannot restore subscription."));
+    }
+
+    auto group = m_groups->findById(existing->groupId);
+    if (!group) {
+        return Result<EnrollmentDto>::error(domain::DomainError(domain::ErrorCode::ValidationFailed, "Group not found."));
+    }
+    if (group->status != domain::GroupStatus::Open) {
+        return Result<EnrollmentDto>::error(domain::DomainError(domain::ErrorCode::BusinessRuleViolation, "Group is not open for enrollments."));
+    }
+    if (group->capacity > 0) {
+        int enrolled = m_enrollments->countActiveInGroup(existing->groupId);
+        if (enrolled >= group->capacity) {
+            return Result<EnrollmentDto>::error(domain::DomainError(domain::ErrorCode::BusinessRuleViolation, "Group has reached maximum capacity. Cannot restore subscription."));
+        }
+    }
+
+    auto activeExisting = m_enrollments->findActive(existing->studentId, existing->groupId);
+    if (activeExisting) {
+        return Result<EnrollmentDto>::error(domain::DomainError(domain::ErrorCode::BusinessRuleViolation, "Student already has an active enrollment in this group."));
+    }
+
+    existing->status = domain::EnrollmentStatus::Active;
+    existing->restorationReason = cmd.reason;
+    existing->restoredAtUtc = currentUtcIso();
+    if (!cmd.restoredByUserId.empty()) {
+        existing->restoredByUserId = cmd.restoredByUserId;
+    }
+
+    auto saved = m_enrollments->save(*existing);
+    return Result<EnrollmentDto>::ok(buildEnrollmentDto(saved));
+}
+
+Result<std::vector<EnrollmentDto>> EnrollmentUseCases::listAll() {
+    auto list = m_enrollments->findAll();
+    std::vector<EnrollmentDto> dtos;
+    dtos.reserve(list.size());
+    for (const auto& e : list) {
+        dtos.push_back(buildEnrollmentDto(e));
+    }
+    return Result<std::vector<EnrollmentDto>>::ok(std::move(dtos));
 }
 
 Result<std::vector<EnrollmentDto>> EnrollmentUseCases::listByStudent(std::int64_t studentId) {
@@ -169,10 +245,18 @@ EnrollmentDto EnrollmentUseCases::buildEnrollmentDto(const domain::Enrollment& e
     dto.paidPiastres = paid;
     dto.balancePiastres = balance;
     dto.enrolledAtUtc = e.enrolledAtUtc;
+    dto.cancelledAtUtc = e.cancelledAtUtc;
+    dto.cancellationReason = e.cancellationReason;
+    dto.cancelledByUserId = e.cancelledByUserId;
+    dto.restoredAtUtc = e.restoredAtUtc;
+    dto.restorationReason = e.restorationReason;
+    dto.restoredByUserId = e.restoredByUserId;
+    dto.notes = e.notes;
 
     switch (e.status) {
         case domain::EnrollmentStatus::Cancelled: dto.status = "cancelled"; break;
         case domain::EnrollmentStatus::Transferred: dto.status = "transferred"; break;
+        case domain::EnrollmentStatus::Completed: dto.status = "completed"; break;
         default: dto.status = "active"; break;
     }
 
@@ -212,4 +296,3 @@ PaymentDto EnrollmentUseCases::toPaymentDto(const domain::Payment& p) {
 }
 
 } // namespace pixcode::application
-

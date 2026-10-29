@@ -18,6 +18,9 @@ public:
     explicit CoursesView(std::shared_ptr<ApplicationContext> appContext, QWidget* parent = nullptr);
 
     void refresh();
+    void selectCoursesTab();
+    void selectGroupsTab();
+    void selectInstructorsTab();
 
 private slots:
     void onAddCourseClicked();
@@ -25,12 +28,15 @@ private slots:
     void onAddGroupClicked();
     void onEditGroupClicked();
     void onEnrollInGroupClicked();
+    void onAddInstructorClicked();
+    void onEditInstructorClicked();
 
 private:
     void setupUi();
     void updateTranslations();
     void loadCourses();
     void loadGroups();
+    void loadInstructors();
 
     std::shared_ptr<ApplicationContext> m_appContext;
 
@@ -51,7 +57,13 @@ private:
     QPushButton* m_editGroupBtn;
     QPushButton* m_enrollInGroupBtn;
     QPushButton* m_refreshGroupsBtn;
+
+    // Instructors tab
+    QWidget* m_instructorsTab;
+    QTableWidget* m_instructorsTable;
+    QPushButton* m_addInstructorBtn;
+    QPushButton* m_editInstructorBtn;
+    QPushButton* m_refreshInstructorsBtn;
 };
 
 } // namespace pixcode::desktop
-

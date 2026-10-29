@@ -14,6 +14,9 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName("PixCodeAcademy");
     app.setOrganizationName("PixCode");
+    pixcode::desktop::LocalizationManager::instance().setLanguage("ar");
+    app.setLayoutDirection(Qt::RightToLeft);
+    pixcode::desktop::Theme::setupApplicationPalette(app);
     app.setStyleSheet(pixcode::desktop::Theme::getApplicationStyleSheet());
 
     // Resolve app data directory

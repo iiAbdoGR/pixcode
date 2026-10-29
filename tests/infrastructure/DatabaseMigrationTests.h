@@ -6,5 +6,5 @@ class DatabaseMigrationTests : public QObject {
 
 private slots:
     void testPragmasAndMigrations();
+    void testMigrationV004WithExistingDataAndForeignKeys();
 };
-

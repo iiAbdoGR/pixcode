@@ -24,7 +24,10 @@ public:
                        std::shared_ptr<ICourseRepository> courses);
 
     Result<EnrollmentDto> enrollStudent(const EnrollStudentCommand& cmd);
+    Result<EnrollmentDto> cancelEnrollment(const CancelSubscriptionCommand& cmd);
     Result<EnrollmentDto> cancelEnrollment(std::int64_t enrollmentId, const std::string& reason);
+    Result<EnrollmentDto> restoreSubscription(const RestoreSubscriptionCommand& cmd);
+    Result<std::vector<EnrollmentDto>> listAll();
     Result<std::vector<EnrollmentDto>> listByStudent(std::int64_t studentId);
     Result<std::vector<EnrollmentDto>> listByGroup(std::int64_t groupId);
     Result<EnrollmentDto> getEnrollment(std::int64_t enrollmentId);
@@ -44,4 +47,3 @@ private:
 };
 
 } // namespace pixcode::application
-

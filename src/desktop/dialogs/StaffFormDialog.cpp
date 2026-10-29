@@ -3,7 +3,9 @@
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QFormLayout>
 #include <QtWidgets/QMessageBox>
+#include <QtWidgets/QLabel>
 #include "../localization/LocalizationManager.h"
+#include "../styles/Theme.h"
 
 namespace pixcode::desktop {
 
@@ -13,7 +15,6 @@ StaffFormDialog::StaffFormDialog(std::shared_ptr<ApplicationContext> appContext,
     : QDialog(parent),
       m_appContext(std::move(appContext)),
       m_userId(std::move(userId)) {
-
     setupUi();
     if (m_userId.has_value()) {
         loadUserData();
@@ -21,207 +22,164 @@ StaffFormDialog::StaffFormDialog(std::shared_ptr<ApplicationContext> appContext,
 }
 
 void StaffFormDialog::setupUi() {
-    bool isRtl = LocalizationManager::instance().isRtl();
-    setWindowTitle(m_userId.has_value()
-        ? (isRtl ? "تعديل حساب موظف والصلاحيات" : "Edit Staff Account & Roles")
-        : (isRtl ? "إضافة حساب موظف جديد" : "Add New Staff Account"));
-    setMinimumWidth(480);
+    const bool isEdit = m_userId.has_value();
+    setWindowTitle(isEdit
+        ? LocalizationManager::instance().get("dialog.staff.edit_title", "Edit User Account")
+        : LocalizationManager::instance().get("dialog.staff.create_title", "Add User Account"));
+    setMinimumWidth(400);
+    setStyleSheet(QString("QDialog { background-color: %1; color: %2; }")
+        .arg(Theme::BackgroundLight)
+        .arg(Theme::PrimaryDark));
 
-    auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(14);
-    mainLayout->setContentsMargins(24, 24, 24, 24);
+    auto* rootLayout = new QVBoxLayout(this);
+    rootLayout->setSpacing(16);
+    rootLayout->setContentsMargins(24, 24, 24, 24);
+
+    auto* titleLabel = new QLabel(isEdit
+        ? LocalizationManager::instance().get("dialog.staff.edit_title", "Edit User Account")
+        : LocalizationManager::instance().get("dialog.staff.create_title", "Add User Account"), this);
+    QFont f = titleLabel->font();
+    f.setBold(true);
+    f.setPointSize(12);
+    titleLabel->setFont(f);
+    titleLabel->setStyleSheet(QString("color: %1;").arg(Theme::PrimaryDark));
+    rootLayout->addWidget(titleLabel);
 
     auto* formLayout = new QFormLayout();
     formLayout->setSpacing(10);
 
+    const QString inputStyle = QString("QLineEdit, QComboBox { background-color: white; border: 1px solid %1; border-radius: 4px; padding: 6px; }")
+        .arg(Theme::SurfaceBorder);
+
     m_usernameEdit = new QLineEdit(this);
-    m_usernameEdit->setPlaceholderText(isRtl ? "اسم المستخدم للولوج *" : "Login username *");
-    if (m_userId.has_value()) {
+    m_usernameEdit->setStyleSheet(inputStyle);
+    if (isEdit) {
         m_usernameEdit->setReadOnly(true);
     }
+    formLayout->addRow(LocalizationManager::instance().get("dialog.staff.username", "Username:"), m_usernameEdit);
 
-    m_passwordEdit = new QLineEdit(this);
-    m_passwordEdit->setEchoMode(QLineEdit::Password);
-    m_passwordEdit->setPlaceholderText(isRtl ? "كلمة المرور (8 أحرف على الأقل) *" : "Password (min 8 chars) *");
-    if (m_userId.has_value()) {
-        m_passwordEdit->setVisible(false);
+    if (!isEdit) {
+        m_passwordEdit = new QLineEdit(this);
+        m_passwordEdit->setEchoMode(QLineEdit::Password);
+        m_passwordEdit->setStyleSheet(inputStyle);
+        formLayout->addRow(LocalizationManager::instance().get("dialog.staff.password", "Initial Password:"), m_passwordEdit);
     }
 
-    m_fullNameEdit = new QLineEdit(this);
-    m_fullNameEdit->setPlaceholderText(isRtl ? "الاسم الرباعي للموظف *" : "Staff Full Name *");
+    // Role Selection: Strictly Owner and Admin Only
+    m_roleCombo = new QComboBox(this);
+    m_roleCombo->setStyleSheet(inputStyle);
+    m_roleCombo->addItem(LocalizationManager::instance().get("role.admin", "Admin (Operational duties)"), "Admin");
+    m_roleCombo->addItem(LocalizationManager::instance().get("role.owner", "Owner (Full access & financials)"), "Owner");
+    formLayout->addRow(LocalizationManager::instance().get("dialog.staff.role", "System Role:"), m_roleCombo);
 
-    m_phoneEdit = new QLineEdit(this);
-    m_phoneEdit->setPlaceholderText(isRtl ? "رقم الهاتف الشخصي" : "Phone number");
-
-    m_activeCheck = new QCheckBox(isRtl ? "الحساب مفعل ونشط" : "Account Active", this);
+    m_activeCheck = new QCheckBox(LocalizationManager::instance().get("dialog.staff.active", "Account Active"), this);
     m_activeCheck->setChecked(true);
+    formLayout->addRow("", m_activeCheck);
 
-    formLayout->addRow(isRtl ? "اسم المستخدم *:" : "Username *:", m_usernameEdit);
-    if (!m_userId.has_value()) {
-        formLayout->addRow(isRtl ? "كلمة المرور *:" : "Password *:", m_passwordEdit);
-    }
-    formLayout->addRow(isRtl ? "الاسم الكامل *:" : "Full Name *:", m_fullNameEdit);
-    formLayout->addRow(isRtl ? "رقم الهاتف:" : "Phone:", m_phoneEdit);
-    formLayout->addRow(isRtl ? "الحالة:" : "Status:", m_activeCheck);
+    rootLayout->addLayout(formLayout);
 
-    mainLayout->addLayout(formLayout);
-
-    // Roles selection
-    auto* rolesBox = new QGroupBox(isRtl ? "الأدوار الوظيفية والصلاحيات" : "Assigned Roles & Permissions", this);
-    auto* rolesLayout = new QVBoxLayout(rolesBox);
-
-    m_roleSuperAdmin = new QCheckBox(isRtl ? "مدير النظام / المالك (SuperAdmin / Owner)" : "Owner / SuperAdmin", rolesBox);
-    m_roleAdmin = new QCheckBox(isRtl ? "مدير فرع / إداري (Admin)" : "Administrator (Admin)", rolesBox);
-    m_roleSecretary = new QCheckBox(isRtl ? "سكرتارية واستقبال (Secretary)" : "Secretary (Front Desk)", rolesBox);
-    m_roleAccountant = new QCheckBox(isRtl ? "محاسب / مالية (Accountant)" : "Accountant (Finance)", rolesBox);
-    m_roleInstructor = new QCheckBox(isRtl ? "مدرب / محاضر (Instructor)" : "Instructor (Teacher)", rolesBox);
-
-    rolesLayout->addWidget(m_roleSuperAdmin);
-    rolesLayout->addWidget(m_roleAdmin);
-    rolesLayout->addWidget(m_roleSecretary);
-    rolesLayout->addWidget(m_roleAccountant);
-    rolesLayout->addWidget(m_roleInstructor);
-
-    mainLayout->addWidget(rolesBox);
-
-    // Instructor specific box
-    m_instructorBox = new QGroupBox(isRtl ? "بيانات التدريب والأجر بالساعة" : "Instructor Details & Hourly Rate", this);
-    auto* instLayout = new QFormLayout(m_instructorBox);
-
-    m_specEdit = new QLineEdit(m_instructorBox);
-    m_specEdit->setPlaceholderText(isRtl ? "مثال: برمجة بايثون / خوارزميات" : "e.g. Python, Web Development");
-
-    m_hourlyRateSpin = new QDoubleSpinBox(m_instructorBox);
-    m_hourlyRateSpin->setRange(0.0, 100000.0);
-    m_hourlyRateSpin->setDecimals(2);
-    m_hourlyRateSpin->setSuffix(isRtl ? " ج.م" : " EGP");
-
-    instLayout->addRow(isRtl ? "التخصص:" : "Specialization:", m_specEdit);
-    instLayout->addRow(isRtl ? "أجر الساعة:" : "Hourly Rate:", m_hourlyRateSpin);
-
-    m_instructorBox->setVisible(false);
-    mainLayout->addWidget(m_instructorBox);
-
-    connect(m_roleInstructor, &QCheckBox::toggled, this, &StaffFormDialog::onRoleToggled);
-
-    // Buttons
     auto* btnLayout = new QHBoxLayout();
-    m_saveBtn = new QPushButton(isRtl ? "حفظ" : "Save", this);
-    m_saveBtn->setObjectName("primaryButton");
-    m_cancelBtn = new QPushButton(isRtl ? "إلغاء" : "Cancel", this);
-    m_cancelBtn->setObjectName("secondaryButton");
-
     btnLayout->addStretch();
-    btnLayout->addWidget(m_cancelBtn);
-    btnLayout->addWidget(m_saveBtn);
-    mainLayout->addLayout(btnLayout);
 
+    m_cancelBtn = new QPushButton(LocalizationManager::instance().get("common.cancel", "Cancel"), this);
+    m_cancelBtn->setStyleSheet(QString("QPushButton { background-color: %1; border: 1px solid %2; padding: 8px 16px; border-radius: 4px; }")
+        .arg(Theme::SurfaceLight)
+        .arg(Theme::SurfaceBorder));
     connect(m_cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
-    connect(m_saveBtn, &QPushButton::clicked, this, &StaffFormDialog::onSaveClicked);
-}
+    btnLayout->addWidget(m_cancelBtn);
 
-void StaffFormDialog::onRoleToggled() {
-    m_instructorBox->setVisible(m_roleInstructor->isChecked());
+    m_saveBtn = new QPushButton(LocalizationManager::instance().get("common.save", "Save"), this);
+    m_saveBtn->setStyleSheet(QString("QPushButton { background-color: %1; color: white; font-weight: bold; padding: 8px 16px; border-radius: 4px; border: none; } QPushButton:hover { background-color: %2; }")
+        .arg(Theme::SecondaryDark)
+        .arg(Theme::PrimaryDark));
+    connect(m_saveBtn, &QPushButton::clicked, this, &StaffFormDialog::onSaveClicked);
+    btnLayout->addWidget(m_saveBtn);
+
+    rootLayout->addLayout(btnLayout);
 }
 
 void StaffFormDialog::loadUserData() {
-    if (!m_userId.has_value()) return;
-
-    auto userOpt = m_appContext->userRepository()->findById(*m_userId);
-    if (!userOpt.has_value()) return;
-
-    const auto& user = *userOpt;
-    m_usernameEdit->setText(QString::fromStdString(user.username()));
-    m_activeCheck->setChecked(user.isActive());
-
-    for (const auto& r : user.roles()) {
-        const auto code = r.code();
-        if (code == "superadmin") m_roleSuperAdmin->setChecked(true);
-        else if (code == "admin") m_roleAdmin->setChecked(true);
-        else if (code == "secretary") m_roleSecretary->setChecked(true);
-        else if (code == "accountant") m_roleAccountant->setChecked(true);
-        else if (code == "instructor") m_roleInstructor->setChecked(true);
+    auto res = m_appContext->staffUseCases()->getStaff(*m_userId);
+    if (!res.isOk()) {
+        QMessageBox::critical(this, LocalizationManager::instance().get("common.error", "Error"),
+                              QString::fromStdString(res.error().message()));
+        reject();
+        return;
     }
 
-    auto instOpt = m_appContext->instructorRepository()->findByUserId(*m_userId);
-    if (instOpt.has_value()) {
-        m_fullNameEdit->setText(QString::fromStdString(instOpt->fullName));
-        m_phoneEdit->setText(QString::fromStdString(instOpt->phone));
-        m_specEdit->setText(QString::fromStdString(instOpt->specialization));
-        m_hourlyRateSpin->setValue(instOpt->hourlyRate.piasters() / 100.0);
-        m_roleInstructor->setChecked(true);
-        m_instructorBox->setVisible(true);
-    } else {
-        m_fullNameEdit->setText(QString::fromStdString(user.username()));
+    const auto& dto = res.value();
+    m_usernameEdit->setText(QString::fromStdString(dto.username));
+    m_activeCheck->setChecked(dto.isActive);
+
+    bool isOwner = false;
+    for (const auto& r : dto.roleCodes) {
+        if (r == "Owner" || r == "SuperAdmin") isOwner = true;
     }
+    int idx = m_roleCombo->findData(isOwner ? "Owner" : "Admin");
+    if (idx >= 0) m_roleCombo->setCurrentIndex(idx);
 }
 
 void StaffFormDialog::onSaveClicked() {
-    bool isRtl = LocalizationManager::instance().isRtl();
     QString username = m_usernameEdit->text().trimmed();
-    QString fullName = m_fullNameEdit->text().trimmed();
-
-    if (username.isEmpty() || fullName.isEmpty()) {
-        QMessageBox::warning(this, isRtl ? "خطأ في الإدخال" : "Validation Error",
-            isRtl ? "يُرجى إدخال اسم المستخدم والاسم الكامل للموظف." : "Username and full name are required.");
+    if (username.length() < 3) {
+        QMessageBox::warning(this, LocalizationManager::instance().get("common.warning", "Warning"),
+                             LocalizationManager::instance().get("dialog.staff.user_short", "Username must be at least 3 characters."));
         return;
     }
 
-    std::vector<std::string> roles;
-    if (m_roleSuperAdmin->isChecked()) roles.push_back("superadmin");
-    if (m_roleAdmin->isChecked()) roles.push_back("admin");
-    if (m_roleSecretary->isChecked()) roles.push_back("secretary");
-    if (m_roleAccountant->isChecked()) roles.push_back("accountant");
-    if (m_roleInstructor->isChecked()) roles.push_back("instructor");
+    std::string selectedRole = m_roleCombo->currentData().toString().toStdString();
+    std::vector<std::string> roles = { selectedRole };
 
-    if (roles.empty()) {
-        QMessageBox::warning(this, isRtl ? "خطأ في الصلاحيات" : "Validation Error",
-            isRtl ? "يجب تعيين دور وظيفي واحد على الأقل للموظف." : "Please select at least one role.");
+    try {
+        if (m_userId.has_value()) {
+            application::UpdateStaffCommand cmd{
+                .userId = *m_userId,
+                .fullName = "",
+                .phone = "",
+                .roleCodes = roles,
+                .isActive = m_activeCheck->isChecked(),
+                .preferredLanguage = "ar",
+                .specialization = "",
+                .hourlyRatePiastres = 0
+            };
+
+            auto res = m_appContext->staffUseCases()->updateStaff(cmd);
+            if (!res.isOk()) {
+                QMessageBox::critical(this, LocalizationManager::instance().get("common.error", "Error"),
+                                      QString::fromStdString(res.error().message()));
+                return;
+            }
+        } else {
+            QString password = m_passwordEdit ? m_passwordEdit->text() : "";
+            if (password.length() < 8) {
+                QMessageBox::warning(this, LocalizationManager::instance().get("common.warning", "Warning"),
+                                     LocalizationManager::instance().get("dialog.staff.pass_short", "Password must be at least 8 characters."));
+                return;
+            }
+
+            application::CreateStaffCommand cmd{
+                .username = username.toStdString(),
+                .password = password.toStdString(),
+                .fullName = "",
+                .phone = "",
+                .preferredLanguage = "ar",
+                .roleCodes = roles,
+                .linkedInstructorId = std::nullopt,
+                .specialization = "",
+                .hourlyRatePiastres = 0
+            };
+
+            auto res = m_appContext->staffUseCases()->createStaff(cmd);
+            if (!res.isOk()) {
+                QMessageBox::critical(this, LocalizationManager::instance().get("common.error", "Error"),
+                                      QString::fromStdString(res.error().message()));
+                return;
+            }
+        }
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, LocalizationManager::instance().get("common.error", "Error"),
+                              QString::fromStdString(e.what()));
         return;
-    }
-
-    if (!m_userId.has_value()) {
-        // Create new staff
-        QString pass = m_passwordEdit->text();
-        if (pass.length() < 8) {
-            QMessageBox::warning(this, isRtl ? "خطأ في كلمة المرور" : "Validation Error",
-                isRtl ? "كلمة المرور يجب ألا تقل عن 8 أحرف." : "Password must be at least 8 characters.");
-            return;
-        }
-
-        application::CreateStaffCommand cmd;
-        cmd.username = username.toStdString();
-        cmd.password = pass.toStdString();
-        cmd.fullName = fullName.toStdString();
-        cmd.phone = m_phoneEdit->text().trimmed().toStdString();
-        cmd.roleCodes = roles;
-        cmd.preferredLanguage = isRtl ? "ar" : "en";
-        cmd.specialization = m_specEdit->text().trimmed().toStdString();
-        cmd.hourlyRatePiastres = static_cast<std::int64_t>(m_hourlyRateSpin->value() * 100.0 + 0.5);
-
-        auto res = m_appContext->staffUseCases()->createStaff(cmd);
-        if (!res.isOk()) {
-            QMessageBox::critical(this, isRtl ? "فشل الإنشاء" : "Error",
-                QString::fromStdString(res.error().message()));
-            return;
-        }
-    } else {
-        // Update staff
-        application::UpdateStaffCommand cmd;
-        cmd.userId = *m_userId;
-        cmd.fullName = fullName.toStdString();
-        cmd.phone = m_phoneEdit->text().trimmed().toStdString();
-        cmd.roleCodes = roles;
-        cmd.isActive = m_activeCheck->isChecked();
-        cmd.specialization = m_specEdit->text().trimmed().toStdString();
-        cmd.hourlyRatePiastres = static_cast<std::int64_t>(m_hourlyRateSpin->value() * 100.0 + 0.5);
-
-        auto res = m_appContext->staffUseCases()->updateStaff(cmd);
-        if (!res.isOk()) {
-            QMessageBox::critical(this, isRtl ? "فشل التعديل" : "Error",
-                QString::fromStdString(res.error().message()));
-            return;
-        }
     }
 
     emit staffSaved();

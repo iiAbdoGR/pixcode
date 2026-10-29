@@ -14,12 +14,13 @@ enum class NavDestination {
     Registration = 1,
     Students = 2,
     Courses = 3,
-    Attendance = 4,
-    Finance = 5,
-    Payroll = 6,
-    Users = 7,
-    Audit = 8,
-    Backup = 9
+    Instructors = 4,
+    Attendance = 5,
+    Finance = 6,
+    Payroll = 7,
+    Users = 8,
+    Audit = 9,
+    Backup = 10
 };
 
 class NavigationSidebar : public QFrame {

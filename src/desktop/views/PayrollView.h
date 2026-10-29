@@ -24,6 +24,7 @@ private slots:
     void onUpdateRateClicked();
     void onIssuePayoutClicked();
     void onApproveSessionClicked();
+    void onSessionSelectionChanged();
 
 private:
     void setupUi();
@@ -47,9 +48,11 @@ private:
     QLabel* m_earnedLabel;
     QLabel* m_paidLabel;
     QLabel* m_dueLabel;
+    QLabel* m_settlementStatusLabel;
 
     QTabWidget* m_tabWidget;
     QTableWidget* m_sessionsTable;
+    QTableWidget* m_archivedSessionsTable;
     QTableWidget* m_payoutsTable;
 };
 

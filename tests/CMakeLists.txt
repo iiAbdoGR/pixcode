@@ -7,7 +7,9 @@ add_executable(academy_tests
     domain/MoneyTests.cpp
     domain/AcademicDomainTests.cpp
     domain/AttendanceAndPayrollTests.cpp
+    domain/SubscriptionLifecycleTests.cpp
     application/AuthorizationTests.cpp
+    application/DashboardAuthorizationTests.cpp
     infrastructure/DatabaseMigrationTests.cpp
     infrastructure/AuditLogTests.cpp
 )

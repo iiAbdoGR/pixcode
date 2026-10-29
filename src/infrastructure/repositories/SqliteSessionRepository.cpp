@@ -37,6 +37,9 @@ domain::Session SqliteSessionRepository::mapRowToSession(const QSqlQuery& query)
     else if (appSt == "rejected") s.approvalStatus = domain::SessionApprovalStatus::Rejected;
     else s.approvalStatus = domain::SessionApprovalStatus::Pending;
 
+    QString settlSt = query.value("settlement_status").toString();
+    s.settlementStatus = domain::Session::settlementStatusFromString(settlSt.toStdString());
+
     if (!query.value("approved_by").isNull()) {
         s.approvedBy = query.value("approved_by").toString().toStdString();
     }
@@ -186,12 +189,12 @@ domain::Session SqliteSessionRepository::save(const domain::Session& session) {
             INSERT INTO sessions (
                 group_id, instructor_id, session_date, scheduled_start_time, scheduled_end_time,
                 actual_start_time, actual_end_time, planned_duration_minutes, actual_duration_minutes,
-                payable_duration_minutes, status, approval_status, approved_by, approved_at_utc,
+                payable_duration_minutes, status, approval_status, settlement_status, approved_by, approved_at_utc,
                 hourly_rate_snapshot_piastres, earned_amount_piastres, notes, created_at_utc, updated_at_utc
             ) VALUES (
                 :gid, :iid, :sdate, :sstart, :send,
                 :astart, :aend, :pdur, :adur,
-                :paydur, :st, :appst, :appby, :appat,
+                :paydur, :st, :appst, :settlst, :appby, :appat,
                 :rate, :earned, :notes, :created, :updated
             );
         )");
@@ -211,6 +214,7 @@ domain::Session SqliteSessionRepository::save(const domain::Session& session) {
         q.bindValue(":paydur", session.payableDurationMinutes);
         q.bindValue(":st", stStr);
         q.bindValue(":appst", appStr);
+        q.bindValue(":settlst", QString::fromStdString(session.settlementStatusToString()));
         if (session.approvedBy.has_value()) {
             q.bindValue(":appby", QString::fromStdString(*session.approvedBy));
         } else {
@@ -226,7 +230,9 @@ domain::Session SqliteSessionRepository::save(const domain::Session& session) {
         q.bindValue(":notes", QString::fromStdString(session.notes));
         q.bindValue(":created", now);
         q.bindValue(":updated", now);
-        q.exec();
+        if (!q.exec()) {
+            throw std::runtime_error("Failed to insert session: " + q.lastError().text().toStdString());
+        }
 
         domain::Session saved = session;
         saved.id = q.lastInsertId().toLongLong();
@@ -249,6 +255,7 @@ domain::Session SqliteSessionRepository::save(const domain::Session& session) {
                 payable_duration_minutes = :paydur,
                 status = :st,
                 approval_status = :appst,
+                settlement_status = :settlst,
                 approved_by = :appby,
                 approved_at_utc = :appat,
                 hourly_rate_snapshot_piastres = :rate,
@@ -273,6 +280,7 @@ domain::Session SqliteSessionRepository::save(const domain::Session& session) {
         q.bindValue(":paydur", session.payableDurationMinutes);
         q.bindValue(":st", stStr);
         q.bindValue(":appst", appStr);
+        q.bindValue(":settlst", QString::fromStdString(session.settlementStatusToString()));
         if (session.approvedBy.has_value()) {
             q.bindValue(":appby", QString::fromStdString(*session.approvedBy));
         } else {
@@ -288,7 +296,9 @@ domain::Session SqliteSessionRepository::save(const domain::Session& session) {
         q.bindValue(":notes", QString::fromStdString(session.notes));
         q.bindValue(":updated", now);
         q.bindValue(":id", static_cast<qint64>(session.id));
-        q.exec();
+        if (!q.exec()) {
+            throw std::runtime_error("Failed to update session: " + q.lastError().text().toStdString());
+        }
 
         domain::Session saved = session;
         saved.updatedAtUtc = now.toStdString();
@@ -385,4 +395,15 @@ int SqliteSessionRepository::countLessonsTaught(std::int64_t instructorId, const
     return 0;
 }
 
+std::int64_t SqliteSessionRepository::sumAllApprovedEarnings() {
+    auto db = m_dbManager->getConnection();
+    QSqlQuery q(db);
+    q.prepare("SELECT COALESCE(SUM(earned_amount_piastres), 0) FROM sessions WHERE approval_status = 'approved' AND status = 'completed';");
+    if (q.exec() && q.next()) {
+        return q.value(0).toLongLong();
+    }
+    return 0;
+}
+
 } // namespace pixcode::infrastructure
+

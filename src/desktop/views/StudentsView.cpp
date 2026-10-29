@@ -82,6 +82,12 @@ void StudentsView::setupUi() {
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_table->setFocusPolicy(Qt::StrongFocus);
+    m_table->setShowGrid(true);
+    m_table->setStyleSheet(
+        "QTableWidget::item:selected { background-color: #0A4174; color: #FFFFFF; font-weight: bold; }"
+        "QTableWidget::item:selected:!focus { background-color: #0A4174; color: #FFFFFF; font-weight: bold; }"
+    );
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     connect(m_table, &QTableWidget::cellDoubleClicked, this, &StudentsView::onRowDoubleClicked);
@@ -135,6 +141,12 @@ void StudentsView::onStatusFilterChanged(int /*index*/) {
 void StudentsView::loadStudents() {
     bool isRtl = LocalizationManager::instance().isRtl();
 
+    std::int64_t previousSelectedStudentId = -1;
+    int currentRow = m_table->currentRow();
+    if (currentRow >= 0 && m_table->item(currentRow, 0)) {
+        previousSelectedStudentId = m_table->item(currentRow, 0)->data(Qt::UserRole).toLongLong();
+    }
+
     application::StudentFilter filter;
     filter.searchText = m_searchEdit->text().trimmed().toStdString();
 
@@ -149,8 +161,12 @@ void StudentsView::loadStudents() {
     auto res = m_appContext->studentRepository()->findAll(filter);
     m_table->setRowCount(static_cast<int>(res.size()));
 
+    int restoreRow = -1;
     for (int i = 0; i < static_cast<int>(res.size()); ++i) {
         const auto& s = res[i];
+        if (s.id == previousSelectedStudentId) {
+            restoreRow = i;
+        }
 
         auto* itemCode = new QTableWidgetItem(QString::fromStdString(s.studentCode));
         itemCode->setData(Qt::UserRole, QVariant::fromValue(static_cast<qint64>(s.id)));
@@ -167,7 +183,6 @@ void StudentsView::loadStudents() {
 
         bool isActive = (s.status == domain::StudentStatus::Active);
         auto* itemStatus = new QTableWidgetItem(isActive ? (isRtl ? "نشط" : "Active") : (isRtl ? "مؤرشف" : "Archived"));
-        itemStatus->setForeground(QBrush(QColor(isActive ? "#2E7D32" : "#D32F2F")));
 
         auto* itemAddress = new QTableWidgetItem(QString::fromStdString(s.address));
 
@@ -177,6 +192,12 @@ void StudentsView::loadStudents() {
         m_table->setItem(i, 3, itemGuardian);
         m_table->setItem(i, 4, itemStatus);
         m_table->setItem(i, 5, itemAddress);
+    }
+
+    if (restoreRow >= 0) {
+        m_table->selectRow(restoreRow);
+    } else if (m_table->rowCount() > 0) {
+        m_table->selectRow(0);
     }
 
     m_countLabel->setText(QString(isRtl ? "إجمالي الطلاب: %1" : "Total: %1").arg(res.size()));
@@ -232,17 +253,23 @@ void StudentsView::onArchiveStudentClicked() {
         return;
     }
     std::int64_t studentId = m_table->item(row, 0)->data(Qt::UserRole).toLongLong();
-    if (QMessageBox::question(this, isRtl ? "تأكيد" : "Confirm",
-            isRtl ? "هل أنت متأكد من تغيير حالة أرشفة هذا الطالب؟" : "Toggle archive status for this student?") == QMessageBox::Yes) {
-        auto res = m_appContext->studentUseCases()->getStudent(studentId);
-        if (res.isOk()) {
-            if (res.value().status == "active") {
-                m_appContext->studentUseCases()->archiveStudent(studentId);
-            } else {
-                m_appContext->studentUseCases()->activateStudent(studentId);
-            }
-            loadStudents();
+    auto res = m_appContext->studentUseCases()->getStudent(studentId);
+    if (!res.isOk()) return;
+
+    bool isActive = (res.value().status == "active");
+    QString msg = isActive
+        ? (isRtl ? "هل أنت متأكد من أرشفة هذا الطالب؟ سيتم نقله من القائمة النشطة مع الحفاظ الكامل على كافة سجلاته المالية والأكاديمية."
+                 : "Are you sure you want to archive this student? They will be moved to archive while preserving all records.")
+        : (isRtl ? "هل تريد إعادة تنشيط هذا الطالب؟ سيتم استعادة حسابه للخدمة مع الحفاظ على هويته الأصلية دون تكرار السجل."
+                 : "Are you sure you want to reactivate this student?");
+
+    if (QMessageBox::question(this, isRtl ? "تأكيد تغيير الحالة" : "Confirm Status Change", msg) == QMessageBox::Yes) {
+        if (isActive) {
+            m_appContext->studentUseCases()->archiveStudent(studentId);
+        } else {
+            m_appContext->studentUseCases()->activateStudent(studentId);
         }
+        loadStudents();
     }
 }
 
